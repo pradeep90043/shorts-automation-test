@@ -4,7 +4,8 @@ export type HealthStatus = "healthy" | "degraded" | "down" | "not_configured" | 
 type Check = { key:string; name:string; status:HealthStatus; severity:"info"|"warning"|"critical"; latencyMs?:number; checkedAt:string; detail:string; affected:string[]; remedy:string };
 
 const checkedAt = () => new Date().toISOString();
-async function probe(key:string,name:string,url:string|undefined,affected:string[]):Promise<Check>{
+const configured = (...names:string[]) => names.some(n => Boolean(process.env[n]?.trim()));
+async function probe(key:string,name:string,url:string|undefined,affected:string[],remedy:string):Promise<Check>{
   const at=checkedAt();
   if(!url) return {key,name,status:"not_configured",severity:"info",checkedAt:at,detail:"No probe URL configured; not monitored in this deployment.",affected:[],remedy:"Configure the dependency only if this deployment uses it."};
   const started=Date.now(); const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),4500);
@@ -22,11 +23,11 @@ async function probe(key:string,name:string,url:string|undefined,affected:string
 }
 export async function getPipelineHealth(){
   const checks=await Promise.all([
-    probe("freellmapi","FreeLLMAPI",process.env.FREELLMAPI_HEALTH_URL||process.env.FREELLMAPI_URL||process.env.FREE_LLM_API_URL,["AI analysis","caption and metadata generation"]),
-    probe("gemini","Gemini",process.env.GEMINI_HEALTH_URL,["AI fallback for supported operations"]),
-    probe("kaggle","Kaggle runner",process.env.KAGGLE_HEALTH_URL,["Jobs explicitly delegated to Kaggle"]),
-    probe("cloudfront","CloudFront",process.env.CLOUDFRONT_HEALTH_URL,["Assets/routes served through the configured distribution"]),
-    probe("pexels","Pexels",process.env.PEXELS_HEALTH_URL,["Stock-footage retrieval"]),
+    probe("freellmapi","FreeLLMAPI",process.env.FREELLMAPI_HEALTH_URL||process.env.FREELLMAPI_URL||process.env.FREE_LLM_API_URL,["AI analysis","caption and metadata generation"],"Check API endpoint, key configuration, quota and rate limits; then test the configured fallback."),
+    probe("gemini","Gemini",process.env.GEMINI_HEALTH_URL,["AI fallback for supported operations"],"Confirm Gemini is configured and credentials are valid; this check is skipped unless a probe URL is configured."),
+    probe("kaggle","Kaggle runner",process.env.KAGGLE_HEALTH_URL,["Jobs explicitly delegated to Kaggle"],"Check the configured Kaggle runner only if this deployment uses it."),
+    probe("cloudfront","CloudFront",process.env.CLOUDFRONT_HEALTH_URL,["Assets/routes served through the configured distribution"],"Verify the configured distribution and origin; unrelated pipeline features should continue."),
+    probe("pexels","Pexels",process.env.PEXELS_HEALTH_URL,["Stock-footage retrieval"],"Verify Pexels configuration and quota if stock footage is enabled."),
   ]);
   const active=checks.filter(c=>c.status!=="not_configured");
   const down=active.filter(c=>c.status==="down").length;
