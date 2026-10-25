@@ -4,10 +4,9 @@ export type HealthStatus = "healthy" | "degraded" | "down" | "not_configured" | 
 type Check = { key:string; name:string; status:HealthStatus; severity:"info"|"warning"|"critical"; latencyMs?:number; checkedAt:string; detail:string; affected:string[]; remedy:string };
 
 const checkedAt = () => new Date().toISOString();
-const configured = (...names:string[]) => names.some(n => Boolean(process.env[n]?.trim()));
 async function probe(key:string,name:string,url:string|undefined,affected:string[],remedy:string):Promise<Check>{
   const at=checkedAt();
-  if(!url) return {key,name,status:"not_configured",severity:"info",checkedAt:at,detail:"No probe URL configured; not monitored in this deployment.",affected:[],remedy:"Configure the dependency only if this deployment uses it."};
+  if(!url) return {key,name,status:"not_configured",severity:"info",checkedAt:at,detail:"No probe URL configured; not monitored in this deployment.",affected:[],remedy:`No health URL is configured. ${remedy}`};
   const started=Date.now(); const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),4500);
   try {
     const response=await fetch(url,{method:"GET",signal:controller.signal,headers:{accept:"application/json,text/plain,*/*"}});
