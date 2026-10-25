@@ -1,4 +1,5 @@
 import { jobProgress } from "./utils/jobProgress";
+import { getPipelineHealth } from "./health/healthCenter";
 import http from "http";
 import fs from "fs";
 import path from "path";
@@ -1234,6 +1235,19 @@ export function startLogServer(): void {
       if (auth.renew) res.setHeader("Set-Cookie", auth.renew);
     }
 
+    // ── Authenticated dependency health endpoint ─────────────────────────
+    if (req.method === "GET" && (url === "/api/health" || url.startsWith("/api/health?"))) {
+      try {
+        const health = await getPipelineHealth();
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(health));
+      } catch (error) {
+        res.writeHead(500, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ status: "unknown", message: "Health check failed; inspect server logs." }));
+      }
+      return;
+    }
+
     // ── GET /oauth2callback ──────────────────────────────────────────────
     // Google OAuth redirect target. Served here (not only on the legacy
     // localhost:OAUTH_PORT listener) so the flow works on prod behind Caddy:
@@ -1794,8 +1808,6 @@ export function startLogServer(): void {
         const body = await parseJsonBody(req);
         const channel = String(body.channel || "").toLowerCase().trim();
         if (!channel) return send(400, { success: false, message: "channel is required" });
-        // dev only: make a short test video (60-900 s) instead of the 10-minute one
-        if (process.env.BOT_ENV === "dev" && Number(body.targetSec) > 0) process.env.LONG_TARGET_SEC = String(Math.round(Number(body.targetSec)));
         const r = await enqueueNow(longQueue(), candidateStore(), channel, {
           publishNow: body.publishNow === true,
           force: body.force === true,
@@ -2115,7 +2127,7 @@ export function startLogServer(): void {
         const watcher = activeWatchers.get(pKey);
         let jobId = "";
         if (watcher) {
-          jobId = await watcher.injectAndRunReel(reelUrl, typeof body.format === "string" ? body.format : undefined);
+          jobId = await watcher.injectAndRunReel(reelUrl);
         } else {
           const newItem = {
             shortcode,
