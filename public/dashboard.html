@@ -154,34 +154,6 @@
       .analytics-kpi-grid { grid-template-columns:repeat(2,1fr); }
       .graphs-grid-2 { grid-template-columns:1fr; }
     }
-
-  /* ── Long Video player ── */
-  .lvp { position:relative; background:#000; border-radius:10px; overflow:hidden; border:1px solid #30363d; user-select:none; outline:none; }
-  .lvp video { width:100%; display:block; max-height:72vh; background:#000; }
-  .lvp-big { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-  .lvp-big span { width:72px; height:72px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font-size:30px; display:flex; align-items:center; justify-content:center; padding-left:5px; transition:opacity .2s; }
-  .lvp.playing .lvp-big span { opacity:0; }
-  .lvp-ctl { position:absolute; left:0; right:0; bottom:0; padding:26px 12px 8px; background:linear-gradient(transparent, rgba(0,0,0,.85)); transition:opacity .25s; }
-  .lvp.idle.playing .lvp-ctl { opacity:0; }
-  .lvp.idle.playing { cursor:none; }
-  .lvp-bar { position:relative; height:18px; cursor:pointer; display:flex; align-items:center; touch-action:none; }
-  .lvp-track { position:relative; width:100%; height:5px; background:rgba(255,255,255,.22); border-radius:3px; transition:height .12s; }
-  .lvp-bar:hover .lvp-track, .lvp-bar.drag .lvp-track { height:8px; }
-  .lvp-buf, .lvp-prog { position:absolute; left:0; top:0; bottom:0; border-radius:3px; }
-  .lvp-buf { background:rgba(255,255,255,.35); }
-  .lvp-prog { background:var(--primary, #ffb800); }
-  .lvp-knob { position:absolute; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; background:#fff; box-shadow:0 0 4px rgba(0,0,0,.6); transform:scale(0); transition:transform .12s; }
-  .lvp-bar:hover .lvp-knob, .lvp-bar.drag .lvp-knob { transform:scale(1); }
-  .lvp-tip { position:absolute; bottom:24px; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#fff; font:600 11px var(--font-mono, monospace); padding:3px 7px; border-radius:4px; pointer-events:none; opacity:0; white-space:nowrap; }
-  .lvp-bar:hover .lvp-tip { opacity:1; }
-  .lvp-row { display:flex; align-items:center; gap:4px; color:#fff; font-size:12px; }
-  .lvp-row button, .lvp-row select { background:none; border:none; color:#fff; font-size:15px; cursor:pointer; padding:5px 8px; border-radius:6px; }
-  .lvp-row button:hover, .lvp-row select:hover { background:rgba(255,255,255,.15); }
-  .lvp-row select { font-size:12px; font-weight:700; appearance:none; text-align:center; }
-  .lvp-row select option { color:#000; }
-  .lvp-time { font-family:var(--font-mono, monospace); font-size:12px; margin:0 8px; white-space:nowrap; }
-  .lvp-vol { width:70px; accent-color:var(--primary, #ffb800); }
-  .lvp-sp { flex:1; }
   </style>
 </head>
 <body>
@@ -193,8 +165,8 @@
     <span class="brand-tag">v3.5 Viral Analytics</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-    <div class="status-pill" id="conn-pill" title="Dashboard ↔ server connection"><div class="status-dot" id="conn-dot"></div> <span id="conn-text">Connecting…</span></div>
-    <button class="btn-icon" onclick="manualRefresh(this)">⟳ Refresh</button>
+    <div class="status-pill"><div class="status-dot"></div> System Active</div>
+    <button class="btn-icon" onclick="fetchDashboardData()">⟳ Refresh</button>
   </div>
 </div>
 
@@ -206,10 +178,10 @@
     <div class="nav-item" data-tab="channels" onclick="switchTab('channels',this)"><span>📺</span> Channel Cards</div>
     <div class="nav-item" data-tab="queue" onclick="switchTab('queue',this)"><span>⏳</span> Queue Manager <span class="nav-badge" id="nav-badge-queued">0</span></div>
     <div class="nav-item" data-tab="inject" onclick="switchTab('inject',this)"><span>＋</span> Inject Link</div>
-    <div class="nav-item" data-tab="longvideo" onclick="switchTab('longvideo',this)"><span>🎞️</span> Long Video <span class="nav-badge" id="nav-badge-longvideo" style="display:none;">●</span></div>
     <div class="nav-item" data-tab="viral" onclick="switchTab('viral',this)"><span>🔥</span> Viral Analytics</div>
     <div class="nav-item" data-tab="config" onclick="switchTab('config',this)"><span>⚙️</span> Configuration</div>
     <div class="nav-item" data-tab="logs" onclick="switchTab('logs',this)"><span>▶</span> Console Logs</div>
+    <div class="nav-item" data-tab="autolong" onclick="switchTab('autolong',this)"><span>🎬</span> Daily Video <span class="nav-badge" id="autolong-badge" style="display:none;background:#f85149;">!</span></div>
     <div class="divider"></div>
     <div class="nav-section-label">Channels</div>
     <div id="sidebar-channels-list"></div>
@@ -320,6 +292,20 @@
                 </div>
               </div>
             </div>
+            <!-- PROCESSING LOG TERMINAL: shown while video is processing before output video is ready -->
+            <div id="pipeline-live-log-card" style="flex:1;min-width:320px;background:#05080c;border:1px solid #1f2937;border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;min-height:175px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-size:11px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:6px;">
+                  <span class="status-dot" style="background:var(--primary);width:6px;height:6px;"></span>
+                  <span>Live Pipeline Stream</span>
+                </div>
+                <span id="pipeline-stream-status" style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);">Processing...</span>
+              </div>
+              <div id="pipeline-live-log-lines" style="flex:1;overflow-y:auto;max-height:120px;font-family:var(--font-mono);font-size:10.5px;line-height:1.45;color:#94a3b8;display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.4);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
+                <div style="color:var(--text-dim);font-style:italic;">Initializing pipeline stream…</div>
+              </div>
+            </div>
+
             <!-- OUTPUT: video preview card + published platforms links -->
             <div id="output-preview-card" style="flex:1;min-width:320px;background:var(--card);border:1px solid var(--success);border-radius:8px;padding:12px;display:none;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -474,68 +460,16 @@
       </div>
     </div>
 
-    <!-- TAB: INJECT / AI VIDEO STUDIO -->
+    <!-- TAB: INJECT -->
     <div id="tab-inject" class="tab-pane">
-      <!-- 1. AI FACELESS MULTI-SCENE VIDEO GENERATOR (OPTIONAL CREATOR ENGINE) -->
-      <div class="table-card" style="margin-bottom:20px;border-left:4px solid var(--purple);">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
-          <div style="font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">
-            <span>🎬 AI Faceless Video Studio</span>
-            <span style="font-size:10px;background:rgba(168,85,247,0.15);color:#c084fc;padding:2px 8px;border-radius:4px;font-weight:700;border:1px solid rgba(168,85,247,0.3);">MULTI-SCENE B-ROLL</span>
-          </div>
-          <span style="font-size:11px;color:var(--text-muted);">Generate 100% original faceless shorts with Pexels B-roll, neural voiceover, and synced subtitles</span>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px;margin-bottom:12px;">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Target Channel Profile</label>
-            <select class="input-field" id="ai-gen-channel-select" style="width:100%;padding:8px 12px;font-weight:600;"></select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Format & Target Duration</label>
-            <select class="select-field" id="ai-gen-format-select" style="width:100%;padding:8px 12px;font-size:12px;">
-              <option value="short">📱 9:16 Vertical Short (30-50s) — YouTube Shorts & Reels</option>
-              <option value="5min">📺 16:9 Landscape Long Video (5 Minutes) — YouTube Video</option>
-              <option value="3min">📺 16:9 Landscape Deep-Dive (3 Minutes) — YouTube Video</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Subtitle Animation Style</label>
-            <select class="select-field" id="ai-gen-sub-style" style="width:100%;padding:8px 12px;font-size:12px;">
-              <option value="classic">Classic Gold Accent (Default)</option>
-              <option value="animated_pop">Animated Pop-up / Karaoke (Hormozi Style)</option>
-              <option value="minimal">Minimal Modern Bar</option>
-              <option value="none">No Subtitles</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="margin-bottom:12px;">
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Video Topic or Custom Script</label>
-          <textarea class="input-field" id="ai-gen-topic-input" placeholder="e.g. 5 Weird Quantum Physics Facts or paste your exact full video script here..." style="width:100%;height:70px;padding:8px 12px;font-size:12px;"></textarea>
-        </div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#fff;cursor:pointer;background:rgba(255,255,255,0.03);padding:6px 12px;border-radius:6px;border:1px solid #30363d;">
-            <input type="checkbox" id="ai-gen-autopublish" checked style="accent-color:var(--success);width:15px;height:15px;">
-            <span>🚀 <b>Auto-Publish to YouTube immediately</b> upon generation</span>
-          </label>
-          <button class="btn-primary" id="btn-ai-gen" style="background:#8957e5;border-color:#ab7df6;padding:8px 18px;" onclick="triggerAiFacelessGeneration()">✨ Generate & Publish Video</button>
-        </div>
-
-        <!-- Progress / Result Card -->
-        <div id="ai-gen-result-container" style="display:none;margin-top:16px;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px;"></div>
-      </div>
-
-      <!-- 2. DIRECT REEL INGEST & REMIX (DEFAULT CURATOR PIPELINE) -->
-      <div class="table-card" style="margin-bottom:24px;border-left:4px solid var(--primary);">
-        <div style="font-size:17px;font-weight:800;color:#fff;margin-bottom:4px;">📥 Direct Reel Ingest & Remix (Curator Mode)</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Paste Instagram Reel URL to trigger AI watermark removal, custom outro, audio mastering, and publishing</div>
-        <div style="margin-bottom:12px;">
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Target Channel</label>
+      <div class="table-card" style="margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:6px;">＋ Direct Reel Ingest & Pipeline</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Paste Instagram Reel URL to trigger real-time AI transcription, caption overlay, and publishing</div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:6px;">Target Channel</label>
           <select class="input-field" id="inject-tab-channel-select" style="width:280px;padding:8px 12px;font-weight:600;"></select>
         </div>
-        <div style="display:flex;gap:10px;margin-bottom:8px;">
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
           <input class="input-field" style="font-family:var(--font-mono);" id="inject-tab-url-input" placeholder="https://www.instagram.com/reel/XXXXXXXX/" onkeydown="if(event.key==='Enter')triggerInjectLink('inject-tab-url-input','inject-tab-channel-select')">
           <button class="btn-primary" style="white-space:nowrap;" onclick="triggerInjectLink('inject-tab-url-input','inject-tab-channel-select')">⚡ Ingest Reel</button>
         </div>
@@ -543,138 +477,6 @@
     </div>
 
     <!-- TAB: VIRAL ANALYTICS -->
-    <div id="tab-longvideo" class="tab-pane">
-      <div class="table-card" style="margin-bottom:20px;border-left:4px solid var(--primary);">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
-          <div style="font-size:17px;font-weight:800;color:#fff;">🎞️ Long Video Studio <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--primary);padding:2px 8px;border-radius:4px;font-weight:700;border:1px solid rgba(88,166,255,0.3);margin-left:6px;">STICKMAN EXPLAINER</span></div>
-          <span style="font-size:11px;color:var(--text-muted);">Paste your script, set the length &mdash; voiceover, scenes and render are automatic</span>
-        </div>
-
-        <div style="margin:14px 0 12px;">
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Script (narration, Hindi / Hinglish / English)</label>
-          <textarea class="input-field" id="lv-script" oninput="lvScheduleEstimate()" placeholder="Paste the exact narration here. Your words are used as-is; only the visuals are picked automatically." style="width:100%;height:200px;padding:10px 12px;font-size:13px;line-height:1.5;"></textarea>
-        </div>
-
-        <details id="lv-plan-box" style="margin-bottom:14px;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;">
-          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--primary);">🧩 Have the scene plan made by another AI? (optional &mdash; skips the built-in planning)</summary>
-          <label style="font-size:12px;color:#c9d1d9;display:flex;gap:6px;align-items:center;cursor:pointer;margin:10px 0 4px;"><input type="checkbox" id="lv-planonly" onchange="lvPlanModeChanged()"> <b>Plan only</b> &mdash; the JSON already contains the narration (every scene has a "text"), so no script is needed and no AI is used at all</label>
-          <div id="lv-planonly-help" style="display:none;font-size:12px;color:#c9d1d9;line-height:1.6;margin:6px 0 10px;">
-            <b>1.</b> Copy the prompt, paste it into ChatGPT and put your transcript under it. <b>2.</b> ChatGPT answers in parts of 40 scenes &mdash; reply &ldquo;next&rdquo; until it says <code>"done": true</code>. <b>3.</b> Paste every part below, press <b>Check plan</b>, then <b>Create Video</b>.
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-              <button class="btn-primary" style="padding:6px 14px;font-size:12px;" onclick="lvCopyPlanOnlyPrompt()">📋 Copy ChatGPT prompt</button>
-              <span style="color:var(--text-muted);">language</span>
-              <select class="select-field" id="lv-po-lang" style="padding:5px 10px;font-size:12px;"><option>Hinglish</option><option>Hindi</option><option>English</option></select>
-              <span style="color:var(--text-muted);">length from &ldquo;Target length&rdquo; below (20 min if empty)</span>
-            </div>
-          </div>
-          <div id="lv-withscript-help" style="font-size:12px;color:#c9d1d9;line-height:1.6;margin:10px 0;">
-            <b>1.</b> Paste your script above, then copy a prompt below into ChatGPT / Claude / Gemini (one prompt per chat message; long scripts are split into parts).<br>
-            <b>2.</b> Paste each JSON answer into the box below (several answers can go one after another).<br>
-            <b>3.</b> Press <b>Check plan</b>. The scenes must match your script word for word and beat number for beat number, or it is rejected.
-          </div>
-          <div id="lv-prompts-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-            <button class="btn-primary" style="padding:6px 14px;font-size:12px;" onclick="lvLoadPrompts()">📋 Get prompts for this script</button>
-            <span id="lv-prompt-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
-          </div>
-          <textarea class="input-field" id="lv-plan" oninput="lvPlanChanged()" placeholder='{"title":"...","description":"...","tags":["..."],"scenes":[{"i":0,"text":"exact beat text","pose":"present","mood":"happy","accent":"blue","camera":"none","setting":"office","callouts":["..."]}, ...]}' style="width:100%;height:140px;padding:10px 12px;font-size:11px;font-family:monospace;line-height:1.4;"></textarea>
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-            <button class="btn-primary" style="padding:6px 14px;font-size:12px;" onclick="lvCheckPlan()">✅ Check plan</button>
-            <label id="lv-repair-label" style="font-size:12px;color:#c9d1d9;display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="lv-repair"> Let the AI fill missing beats</label>
-            <button class="btn-primary" style="padding:6px 14px;font-size:12px;background:#21262d;border:1px solid #30363d;" onclick="document.getElementById('lv-plan').value='';lvPlanChanged()">Clear</button>
-          </div>
-          <div id="lv-plan-status" style="margin-top:8px;font-size:12px;"></div>
-        </details>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px;">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Target length</label>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <input class="input-field" id="lv-min" type="number" min="0" max="60" placeholder="min" oninput="lvScheduleEstimate()" style="width:70px;padding:8px;"> <span style="font-size:11px;color:var(--text-muted);">m</span>
-              <input class="input-field" id="lv-sec" type="number" min="0" max="59" placeholder="sec" oninput="lvScheduleEstimate()" style="width:70px;padding:8px;"> <span style="font-size:11px;color:var(--text-muted);">s</span>
-            </div>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Narration voice</label>
-            <select class="select-field" id="lv-voice" style="width:100%;padding:8px 12px;font-size:12px;">
-              <option value="">Hindi / Hinglish &mdash; Madhur (default)</option>
-              <option value="voicebox">My cloned voice &mdash; Hindi (Voicebox on GitHub, adds ~20 min)</option>
-              <option value="voicebox-en">My cloned voice &mdash; English (Voicebox on GitHub)</option>
-              <option value="hi-IN-SwaraNeural">Hindi &mdash; Swara (female)</option>
-              <option value="en-IN-PrabhatNeural">English (India) &mdash; Prabhat (male)</option>
-              <option value="en-IN-NeerjaNeural">English (India) &mdash; Neerja (female)</option>
-              <option value="en-US-GuyNeural">English (US) &mdash; Guy (male)</option>
-              <option value="en-US-JennyNeural">English (US) &mdash; Jenny (female)</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Format</label>
-            <select class="select-field" id="lv-orientation" onchange="lvOrientationChanged()" style="width:100%;padding:8px 12px;font-size:12px;">
-              <option value="horizontal">📺 16:9 Long video (YouTube)</option>
-              <option value="vertical">📱 9:16 Short / Reel</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Quality</label>
-            <select class="select-field" id="lv-resolution" onchange="lvScheduleEstimate()" style="width:100%;padding:8px 12px;font-size:12px;">
-              <option value="720">720p (faster)</option>
-              <option value="1080">1080p (about 2x slower)</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Title (optional)</label>
-            <input class="input-field" id="lv-title" type="text" placeholder="Auto-generated if empty" style="width:100%;padding:8px 12px;">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Publish to channel</label>
-            <select class="input-field" id="lv-channel-select" style="width:100%;padding:8px 12px;font-weight:600;"></select>
-          </div>
-        </div>
-
-        <div id="lv-estimate" style="display:none;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#c9d1d9;"></div>
-
-        <div style="display:flex;justify-content:flex-end;">
-          <button class="btn-primary" id="lv-start-btn" style="padding:9px 22px;" onclick="lvStart()">🎬 Create Video</button>
-        </div>
-      </div>
-
-      <div class="table-card" id="lv-progress-card" style="display:none;margin-bottom:20px;"></div>
-
-      <div id="lv-player-wrap" style="display:none;margin-bottom:20px;">
-        <div class="table-card" style="padding:14px;">
-          <div id="lv-player-title" style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px;"></div>
-          <div id="lv-player-frame" style="margin:0 auto;max-width:960px;">
-            <div class="lvp idle" id="lvp" tabindex="0">
-              <video id="lvp-video" playsinline preload="metadata"></video>
-              <div class="lvp-big"><span>▶</span></div>
-              <div class="lvp-ctl">
-                <div class="lvp-bar" id="lvp-bar">
-                  <div class="lvp-track"><div class="lvp-buf" id="lvp-buf"></div><div class="lvp-prog" id="lvp-prog"></div><div class="lvp-knob" id="lvp-knob"></div></div>
-                  <div class="lvp-tip" id="lvp-tip">0:00</div>
-                </div>
-                <div class="lvp-row">
-                  <button id="lvp-play" title="Play / pause (space)">▶</button>
-                  <button id="lvp-back" title="Back 10 s (J)">⏪</button>
-                  <button id="lvp-fwd" title="Forward 10 s (L)">⏩</button>
-                  <button id="lvp-mute" title="Mute (M)">🔊</button>
-                  <input id="lvp-vol" class="lvp-vol" type="range" min="0" max="1" step="0.05" value="1">
-                  <span class="lvp-time" id="lvp-time">0:00 / 0:00</span>
-                  <span class="lvp-sp"></span>
-                  <select id="lvp-speed" title="Playback speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
-                  <button id="lvp-full" title="Fullscreen (F)">⛶</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center;">Click the bar or drag to jump anywhere &middot; Space play/pause &middot; ← → 5 s &middot; J / L 10 s &middot; ↑ ↓ volume &middot; 0-9 jump to 0-90% &middot; F fullscreen</div>
-        </div>
-      </div>
-
-      <div class="table-card">
-        <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:10px;">Recent videos</div>
-        <div id="lv-history" style="font-size:12px;color:var(--text-muted);">No videos yet.</div>
-      </div>
-    </div>
-
     <div id="tab-viral" class="tab-pane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
         <div>
@@ -792,19 +594,58 @@
 
     <!-- TAB: CONFIGURATION -->
     <div id="tab-config" class="tab-pane">
-      <div style="max-width:980px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
-          <div>
-            <div style="font-size:20px;font-weight:800;color:#fff;">⚙️ Channel Profiles & Publishing Store</div>
-            <div style="color:var(--text-muted);font-size:12px;">Manage social credentials, YouTube/Instagram API tokens, watcher settings, and dynamic channels stored in database.</div>
-          </div>
-          <button class="btn-primary" onclick="openAddChannelModal()">➕ Add New Channel</button>
-        </div>
+      <div style="max-width:760px;">
+        <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;">⚙️ Channel Automation Configuration</div>
+        <div style="color:var(--text-muted);margin-bottom:20px;">Set daily reel limits, posting schedules, and automated retry policies per channel profile.</div>
         <div id="config-cards-list"></div>
       </div>
     </div>
 
     <!-- TAB: LOGS -->
+    <div id="tab-autolong" class="tab-pane">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#fff;">🎬 Daily 10-minute video</div>
+          <div style="color:var(--text-muted);font-size:12px;">One researched video per channel per night, released in the evening. Refreshes every 10 seconds.</div>
+        </div>
+        <div id="autolong-updated" style="color:var(--text-muted);font-size:12px;">loading...</div>
+      </div>
+      <div class="table-card" style="margin:12px 0;">
+        <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:4px;">Make today's video now</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Uses the best Short published today for the channel (publish a Short first). Normally this runs by itself after midnight.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <select class="input-field" id="autolong-channel" style="width:180px;padding:6px 10px;">
+            <option value="prompt_gag">Prompt Gag</option><option value="codeorcap">CodeOrCap</option>
+            <option value="storiyum">Storiyum</option><option value="infoonspot">InfoOnSpot</option>
+          </select>
+          <label style="font-size:12px;color:var(--text-muted);display:flex;gap:6px;align-items:center;"><input type="checkbox" id="autolong-now" checked> publish as soon as it is ready</label>
+          <label style="font-size:12px;color:var(--text-muted);display:flex;gap:6px;align-items:center;"><input type="checkbox" id="autolong-force"> replace a failed/finished one</label>
+          <button class="btn-primary" style="padding:6px 14px;font-size:12px;" onclick="autoLongMakeNow()">🎬 Make video now</button>
+          <span id="autolong-make-result" style="font-size:12px;"></span>
+        </div>
+      </div>
+      <div id="autolong-alert" style="display:none;margin:12px 0;padding:12px 14px;border:1px solid #f85149;border-radius:10px;background:rgba(248,81,73,.12);color:#ffb4ae;font-size:13px;"></div>
+      <div id="autolong-switches" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;"></div>
+      <div id="autolong-counters" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+      <div class="table-card" style="margin-bottom:20px;">
+        <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:10px;">Schedule (IST)</div>
+        <div id="autolong-schedule" style="font-size:12px;color:var(--text-muted);line-height:1.8;"></div>
+      </div>
+      <div class="table-card" style="margin-bottom:20px;">
+        <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:10px;">Queue (latest first)</div>
+        <div class="table-responsive">
+          <table>
+            <thead><tr><th>Day</th><th>Channel</th><th>Status</th><th>Seed reel</th><th>Tries</th><th>Public at</th><th>Video / error</th></tr></thead>
+            <tbody id="autolong-queue"><tr><td colspan="7" style="color:var(--text-muted);">loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="table-card">
+        <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:10px;">Live events</div>
+        <div id="autolong-events" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;max-height:46vh;overflow-y:auto;line-height:1.6;"></div>
+      </div>
+    </div>
+
     <div id="tab-logs" class="tab-pane">
       <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;">▶ Console Logs</div>
       <div style="color:var(--text-muted);margin-bottom:16px;">Live log output from watcher jobs, AI rendering engines, and uploader services</div>
@@ -821,186 +662,6 @@
       <div id="log-container" style="background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:14px;height:60vh;overflow-y:auto;font-family:var(--font-mono);font-size:12px;"></div>
     </div>
 
-  </div>
-<!-- MODAL: ADD CHANNEL -->
-<div id="modal-add-channel" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:999;overflow-y:auto;padding:30px 16px;">
-  <div style="max-width:680px;margin:0 auto;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid #21262d;padding-bottom:12px;">
-      <div>
-        <div style="font-size:18px;font-weight:800;color:#fff;">➕ Configure & Add New Channel</div>
-        <div style="font-size:12px;color:var(--text-muted);">Stored directly in PostgreSQL and activated immediately in real-time.</div>
-      </div>
-      <button class="btn-icon" onclick="closeAddChannelModal()" style="font-size:16px;padding:4px 10px;">✕</button>
-    </div>
-
-    <!-- REQUIRED SECTION -->
-    <div style="background:#0d1117;border:1px solid rgba(56,139,253,0.4);border-radius:8px;padding:16px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <span style="background:var(--primary);color:#000;font-size:10px;font-weight:900;padding:2px 6px;border-radius:4px;letter-spacing:1px;">REQUIRED</span>
-        <span style="font-size:13px;font-weight:700;color:#fff;">Channel Identity & Publishing Destination</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Channel Key / Slug *</label>
-          <input class="input-field" id="new-ch-key" placeholder="e.g. techmeme" style="font-family:var(--font-mono);">
-          <span style="font-size:10px;color:var(--text-dim);">Lowercase alphanumeric (e.g. techmeme, viralhub)</span>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Brand Display Name *</label>
-          <input class="input-field" id="new-ch-name" placeholder="e.g. Tech Meme">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Brand Handle *</label>
-          <input class="input-field" id="new-ch-handle" placeholder="e.g. @techmeme">
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Niche / Content Category *</label>
-          <input class="input-field" id="new-ch-niche" placeholder="e.g. tech, stories, humor, fitness, gaming, finance..." list="niche-suggestions">
-          <datalist id="niche-suggestions">
-            <option value="tech">Tech & Coding</option>
-            <option value="stories">Stories & Tales</option>
-            <option value="humor">Humor & Memes</option>
-            <option value="fitness">Fitness & Workouts</option>
-            <option value="finance">Finance & Investing</option>
-            <option value="gaming">Gaming & Streaming</option>
-            <option value="motivation">Motivation & Self-Improvement</option>
-            <option value="travel">Travel & Exploration</option>
-            <option value="cooking">Cooking & Food Recipes</option>
-          </datalist>
-          <span style="font-size:10px;color:var(--text-dim);">Type any custom niche (e.g. fitness, crypto, history)</span>
-        </div>
-      </div>
-      <!-- MULTI INSTAGRAM ACCOUNTS -->
-      <div style="margin-top:14px;border-top:1px solid #21262d;padding-top:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);">📷 Instagram Accounts (Broadcast to multiple)</label>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button type="button" class="btn-primary" style="padding:2px 10px;font-size:10px;background:#1877F2;border-color:#1877F2;" data-meta-connect onclick="connectMetaOAuth('modal')">🔗 Connect with Facebook</button>
-            <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;color:#58a6ff;border-color:rgba(88,166,255,0.4);" onclick="openPickIgModal('modal')">🔍 Pick (paste token)</button>
-            <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;" onclick="addModalIgRow()">➕ Add Manual</button>
-          </div>
-        </div>
-        <div id="new-ch-ig-list" style="display:flex;flex-direction:column;gap:8px;">
-          <div class="modal-ig-row" style="display:grid;grid-template-columns:140px 1fr 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;border:1px solid #21262d;">
-            <input class="input-field modal-ig-name" placeholder="Account Name (e.g. Main IG)" value="Main Instagram" style="padding:6px 8px;font-size:11px;">
-            <input class="input-field modal-ig-id" placeholder="Instagram User ID" style="padding:6px 8px;font-size:11px;font-family:var(--font-mono);">
-            <input class="input-field modal-ig-token" type="password" placeholder="Access Token (EAAB...)" style="padding:6px 8px;font-size:11px;font-family:var(--font-mono);">
-            <button type="button" class="btn-icon" style="color:var(--danger);padding:4px 8px;font-size:11px;" onclick="this.closest('.modal-ig-row').remove()" title="Remove">✕</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MULTI YOUTUBE CHANNELS -->
-      <div style="margin-top:14px;border-top:1px solid #21262d;padding-top:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-          <label style="font-size:11px;font-weight:700;color:var(--text-muted);">▶ YouTube Channels (Broadcast to multiple)</label>
-          <div style="display:flex;gap:6px;">
-            <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;color:#58a6ff;border-color:rgba(88,166,255,0.4);" onclick="connectYouTubeOAuth('modal')">🔑 Sign-in with Google</button>
-            <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;" onclick="addModalYtRow()">➕ Add Manual</button>
-          </div>
-        </div>
-        <div id="new-ch-yt-list" style="display:flex;flex-direction:column;gap:8px;">
-          <div class="modal-yt-row" style="display:grid;grid-template-columns:140px 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;border:1px solid #21262d;">
-            <input class="input-field modal-yt-name" placeholder="Channel Name (e.g. Main Shorts)" value="Primary YouTube" style="padding:6px 8px;font-size:11px;">
-            <input class="input-field modal-yt-token" type="password" placeholder="Refresh Token (1//04...)" style="padding:6px 8px;font-size:11px;font-family:var(--font-mono);">
-            <button type="button" class="btn-icon" style="color:var(--danger);padding:4px 8px;font-size:11px;" onclick="this.closest('.modal-yt-row').remove()" title="Remove">✕</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- FACEBOOK -->
-      <div style="margin-top:14px;border-top:1px solid #21262d;padding-top:10px;">
-        <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:8px;">📘 Facebook Page (Optional)</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Page ID</label>
-            <input class="input-field" id="new-ch-fb-id" placeholder="e.g. 1244228672098266" style="font-family:var(--font-mono);font-size:11px;">
-          </div>
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Access Token</label>
-            <input class="input-field" id="new-ch-fb-token" type="password" placeholder="EAAB..." style="font-family:var(--font-mono);font-size:11px;">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- OPTIONAL SECTION -->
-    <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <span style="background:#30363d;color:#e6edf3;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:1px;">OPTIONAL</span>
-        <span style="font-size:13px;font-weight:700;color:#fff;">Automation Watcher & Advanced Settings</span>
-      </div>
-      <div style="margin-bottom:12px;">
-        <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Competitor Watch Channels (comma-separated)</label>
-        <textarea class="input-field" id="new-ch-watchlist" placeholder="e.g. pubity, 9gag, memezar" style="height:60px;font-family:var(--font-mono);font-size:11px;"></textarea>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Search Mode</label>
-          <select class="select-field" id="new-ch-search-mode" style="width:100%;">
-            <option value="channels">Competitor Watchlist</option>
-            <option value="hashtags">Global Hashtags</option>
-            <option value="both">Both (Channels + Tags)</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Daily Limit</label>
-          <input type="number" class="input-field" id="new-ch-daily" value="5" min="1" max="20">
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Schedule Time</label>
-          <input class="input-field" id="new-ch-time" value="09:00" placeholder="09:00">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Outro Version</label>
-          <select class="select-field" id="new-ch-outro" style="width:100%;">
-            <option value="v2">v2 (Pexels b-roll transition)</option>
-            <option value="v1">v1 (Classic outro)</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Facebook Access Token</label>
-          <input class="input-field" id="new-ch-fb-token" type="password" placeholder="EAAB..." style="font-family:var(--font-mono);font-size:11px;">
-        </div>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:flex-end;gap:10px;">
-      <button class="btn-icon" onclick="closeAddChannelModal()">Cancel</button>
-      <button class="btn-primary" onclick="submitAddChannelForm()">🚀 Save Channel to Database</button>
-    </div>
-<!-- MODAL: PICK INSTAGRAM / META ACCOUNT -->
-<div id="modal-pick-ig" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);z-index:9999;backdrop-filter:blur(4px);">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#161b22;border:1px solid #30363d;border-radius:12px;width:90%;max-width:580px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 16px 40px rgba(0,0,0,0.6);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid #21262d;padding-bottom:12px;">
-      <div>
-        <h3 style="margin:0;font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">
-          <span>📷 Select Instagram Account</span>
-        </h3>
-        <span style="font-size:11px;color:var(--text-muted);">Pick an account connected to your Meta Facebook page to automatically link its ID and Token</span>
-      </div>
-      <button class="btn-icon" onclick="closePickIgModal()" style="font-size:14px;padding:4px 8px;">✕</button>
-    </div>
-
-    <!-- Meta Token Input / Inspector -->
-    <div style="background:#0d1117;padding:12px;border-radius:8px;border:1px solid #21262d;margin-bottom:16px;">
-      <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Meta Graph API Access Token</label>
-      <div style="display:flex;gap:8px;">
-        <input class="input-field" id="pick-ig-token" type="password" placeholder="Paste Meta Access Token (or leave empty to use configured token)" style="font-size:11px;font-family:var(--font-mono);flex:1;">
-        <button class="btn-primary" style="padding:6px 12px;font-size:11px;white-space:nowrap;" onclick="inspectMetaAccounts()">🔍 Load Accounts</button>
-      </div>
-    </div>
-
-    <!-- Accounts List Container -->
-    <div id="pick-ig-list-container">
-      <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">
-        Click <b>"Load Accounts"</b> to detect all Instagram Creator/Business accounts and Facebook pages.
-      </div>
-    </div>
   </div>
 </div>
 
@@ -1071,554 +732,7 @@
     if (tab === 'viral' && globalDashboardData && globalDashboardData.viralAnalytics) {
       setTimeout(() => renderViralCharts(globalDashboardData.viralAnalytics), 60);
     }
-    if (tab === 'longvideo') lvOnOpen();
-    if (tab === 'config') {
-      renderConfigTab(globalDashboardData && globalDashboardData.channels);
-    }
   }
-
-  /* ─── LONG VIDEO STUDIO (my-video stickman) ─── */
-  let lvEstTimer = null, lvPollTimer = null, lvTickTimer = null, lvJob = null, lvJobFetchedAt = 0;
-  const lvEsc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const lvFmt = (sec) => {
-    sec = Math.max(0, Math.round(sec));
-    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-    return h ? h + 'h ' + m + 'm' : m ? m + 'm ' + String(s).padStart(2, '0') + 's' : s + 's';
-  };
-  const lvTargetSec = () => {
-    const m = parseInt(document.getElementById('lv-min').value || '0', 10) || 0;
-    const s = parseInt(document.getElementById('lv-sec').value || '0', 10) || 0;
-    return m * 60 + s || undefined;
-  };
-
-  function lvOrientationChanged() {
-    document.getElementById('lv-resolution').value = document.getElementById('lv-orientation').value === 'vertical' ? '1080' : '720';
-    lvScheduleEstimate();
-  }
-
-  function lvScheduleEstimate() {
-    clearTimeout(lvEstTimer);
-    lvEstTimer = setTimeout(lvEstimate, 450);
-  }
-
-  async function lvEstimate() {
-    const box = document.getElementById('lv-estimate');
-    const script = document.getElementById('lv-script').value.trim();
-    if (!script) { box.style.display = 'none'; return; }
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/estimate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ script, targetSec: lvTargetSec(), resolution: document.getElementById('lv-resolution').value })
-      });
-      const d = await res.json();
-      if (!d.success) { box.style.display = 'none'; return; }
-      const e = d.estimate;
-      box.style.display = 'block';
-      box.innerHTML =
-        '<div style="display:flex;gap:22px;flex-wrap:wrap;">' +
-          '<div><div style="font-size:10px;color:var(--text-muted);">SCRIPT</div><b>' + e.words + '</b> words &middot; <b>' + e.scenes + '</b> scenes</div>' +
-          '<div><div style="font-size:10px;color:var(--text-muted);">VIDEO LENGTH</div><b>~' + lvFmt(e.videoSec) + '</b>' + (e.targetSec ? ' (target ' + lvFmt(e.targetSec) + ')' : '') + '</div>' +
-          '<div><div style="font-size:10px;color:var(--text-muted);">TIME TO CREATE</div><b style="color:var(--primary);">~' + lvFmt(e.totalSec) + '</b> <span style="font-size:10px;color:var(--text-muted);">' + (e.basedOnSamples ? '(from ' + e.basedOnSamples + ' past renders)' : '(first run &mdash; rough guess)') + '</span></div>' +
-          '<div><div style="font-size:10px;color:var(--text-muted);">VOICE SPEED</div><b>' + lvEsc(e.rate) + '</b></div>' +
-        '</div>' +
-        (e.fitToWords ? '<div style="margin-top:8px;color:var(--primary);">✍️ Your script (' + e.words + ' words) will be automatically rewritten to ~' + e.fitToWords + ' words to fit ' + lvFmt(e.targetSec) + ' before the video is made.</div>' : '') +
-        (e.note ? '<div style="margin-top:8px;color:#d29922;">⚠️ ' + lvEsc(e.note) + '</div>' : '');
-    } catch (err) { box.style.display = 'none'; }
-  }
-
-  /* Lesson-quality findings (warnings only): code shown? quiz answers leaking? lines too long? */
-  function lvWarningsHtml(list) {
-    if (!list || !list.length) return '';
-    const rows = list.map(w => '<li style="margin:3px 0;color:' + (w.level === 'warn' ? '#d29922' : 'var(--text-muted)') + ';">' + (w.level === 'warn' ? '⚠️ ' : 'ℹ️ ') + (w.scene ? '<b>Scene ' + w.scene + ':</b> ' : '') + lvEsc(w.message) + '</li>').join('');
-    return '<details style="margin-top:12px;"' + (list.some(w => w.level === 'warn') ? ' open' : '') + '><summary style="cursor:pointer;font-size:12px;color:#d29922;">Lesson quality check (' + list.filter(w => w.level === 'warn').length + ' warning' + (list.filter(w => w.level === 'warn').length === 1 ? '' : 's') + ', ' + list.filter(w => w.level !== 'warn').length + ' tip' + (list.filter(w => w.level !== 'warn').length === 1 ? '' : 's') + ')</summary><ul style="margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.5;">' + rows + '</ul></details>';
-  }
-
-  /* ── Plan made by another AI ── */
-  let lvPrompts = [];
-  function lvPlanStatus(html) { document.getElementById('lv-plan-status').innerHTML = html; }
-  function lvPlanChanged() { lvPlanStatus(''); }
-  function lvPlanProblems(d) {
-    const list = (d.errors || []).map(e => '<li>' + lvEsc(e) + '</li>').join('');
-    const more = d.moreErrors ? '<li>...and ' + d.moreErrors + ' more</li>' : '';
-    return list ? '<ul style="margin:6px 0 0 18px;padding:0;">' + list + more + '</ul>' : '';
-  }
-  async function lvCopy(text) {
-    try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
-    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
-    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
-    ta.remove(); return ok;
-  }
-  async function lvLoadPrompts() {
-    const script = document.getElementById('lv-script').value.trim();
-    if (!script) { showToast('Paste the script first.', 'err'); return; }
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/plan/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ script }) });
-      const d = await res.json();
-      if (!d.success) { showToast(d.message || 'Could not build prompts', 'err'); return; }
-      lvPrompts = d.prompts;
-      document.getElementById('lv-prompt-btns').innerHTML = lvPrompts.map((p, k) =>
-        '<button class="btn-primary" style="padding:5px 12px;font-size:11px;background:#21262d;border:1px solid #30363d;" onclick="lvCopyPrompt(' + k + ')">Copy prompt ' + (k + 1) + '/' + lvPrompts.length + ' (beats ' + p.from + '&ndash;' + p.to + ')</button>').join('');
-      lvPlanStatus('<span style="color:var(--text-muted);">' + d.beatCount + ' beats in ' + lvPrompts.length + ' prompt' + (lvPrompts.length > 1 ? 's' : '') + '. Do not change the script after copying &mdash; the plan is matched to it exactly.</span>');
-    } catch (err) { showToast('Error: ' + err.message, 'err'); }
-  }
-  async function lvCopyPrompt(k) {
-    const ok = await lvCopy(lvPrompts[k].prompt);
-    showToast(ok ? 'Prompt ' + (k + 1) + ' copied - paste it into your AI chat' : 'Copy failed', ok ? 'ok' : 'err');
-  }
-  const lvPlanOnly = () => document.getElementById('lv-planonly').checked;
-  function lvPlanModeChanged() {
-    const on = lvPlanOnly();
-    document.getElementById('lv-planonly-help').style.display = on ? 'block' : 'none';
-    document.getElementById('lv-withscript-help').style.display = on ? 'none' : 'block';
-    document.getElementById('lv-prompts-row').style.display = on ? 'none' : 'flex';
-    document.getElementById('lv-repair-label').style.display = on ? 'none' : 'flex';
-    lvPlanStatus('');
-  }
-  async function lvCopyPlanOnlyPrompt() {
-    const mins = Math.round(lvTargetSec() / 60) || 20;
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/plan/prompt-only', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutes: mins, language: document.getElementById('lv-po-lang').value }) });
-      const d = await res.json();
-      if (!d.success) { showToast(d.message || 'Could not build the prompt', 'err'); return; }
-      const ok = await lvCopy(d.prompt);
-      showToast(ok ? 'Prompt copied (' + mins + ' min) - paste it into ChatGPT, then add your transcript below it' : 'Copy failed', ok ? 'ok' : 'err');
-    } catch (err) { showToast('Error: ' + err.message, 'err'); }
-  }
-  async function lvCheckPlanOnly(plan) {
-    lvPlanStatus('<span style="color:var(--text-muted);">Checking...</span>');
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/plan/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planOnly: true, plan, targetSec: lvTargetSec(), resolution: document.getElementById('lv-resolution').value }) });
-      const d = await res.json();
-      if (!d.success) { lvPlanStatus('<span style="color:#ff7b72;">❌ ' + lvEsc(d.message || 'Plan could not be read') + lvPlanProblems(d) + '</span>'); return false; }
-      if (!d.ok) { lvPlanStatus('<span style="color:#ff7b72;">❌ Rejected:' + lvPlanProblems(d) + '</span>'); return false; }
-      const e = d.estimate;
-      lvPlanStatus('<span style="color:#3fb950;">✅ ' + d.scenes + ' scenes, ' + d.words + ' words' + (e ? ' &middot; video ~' + lvFmt(e.videoSec) + ' &middot; creating takes ~' + lvFmt(e.totalSec) : '') + '. No AI will be used. Press Create Video.</span>' + lvWarningsHtml(d.warnings));
-      return true;
-    } catch (err) { lvPlanStatus('<span style="color:#ff7b72;">Error: ' + lvEsc(err.message) + '</span>'); return false; }
-  }
-  async function lvCheckPlan() {
-    const script = document.getElementById('lv-script').value.trim();
-    const plan = document.getElementById('lv-plan').value.trim();
-    if (lvPlanOnly()) {
-      if (!plan) { showToast('Paste the plan JSON first.', 'err'); return false; }
-      return lvCheckPlanOnly(plan);
-    }
-    if (!script || !plan) { showToast('Paste both the script and the plan JSON.', 'err'); return false; }
-    lvPlanStatus('<span style="color:var(--text-muted);">Checking...</span>');
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/plan/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ script, plan }) });
-      const d = await res.json();
-      if (!d.success) { lvPlanStatus('<span style="color:#ff7b72;">❌ ' + lvEsc(d.message || 'Plan could not be read') + lvPlanProblems(d) + '</span>'); return false; }
-      const repair = document.getElementById('lv-repair').checked;
-      const miss = d.missing.length;
-      if (!d.ok) {
-        lvPlanStatus('<span style="color:#ff7b72;">❌ Rejected &mdash; the plan does not match your script:' + lvPlanProblems(d) + '</span>');
-        return false;
-      }
-      if (miss && !repair) {
-        lvPlanStatus('<span style="color:#d29922;">⚠️ ' + d.matched + ' of ' + d.beatCount + ' beats covered. Missing beats: ' + d.missing.slice(0, 40).join(', ') + (miss > 40 ? ', ...' : '') + '. Paste the rest, or tick &ldquo;Let the AI fill missing beats&rdquo;.</span>');
-        return false;
-      }
-      lvPlanStatus('<span style="color:#3fb950;">✅ Plan matches your script (' + d.matched + ' of ' + d.beatCount + ' beats)' + (miss ? '; the AI will fill the ' + miss + ' missing beat' + (miss > 1 ? 's' : '') : '') + '. Press Create Video.</span>' + lvWarningsHtml(d.warnings));
-      return true;
-    } catch (err) { lvPlanStatus('<span style="color:#ff7b72;">Error: ' + lvEsc(err.message) + '</span>'); return false; }
-  }
-
-  async function lvStart() {
-    const planOnly = lvPlanOnly();
-    const script = document.getElementById('lv-script').value.trim();
-    const plan = document.getElementById('lv-plan').value.trim();
-    if (planOnly && !plan) { showToast('Paste the plan JSON first.', 'err'); document.getElementById('lv-plan-box').open = true; return; }
-    if (!planOnly && !script) { showToast('Paste a script first.', 'err'); return; }
-    if (plan && !(await lvCheckPlan())) { document.getElementById('lv-plan-box').open = true; showToast('Fix the imported plan first (or clear it)', 'err'); return; }
-    const btn = document.getElementById('lv-start-btn');
-    btn.disabled = true;
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          script, targetSec: lvTargetSec(),
-          plan: plan || undefined, planOnly, repairMissing: !planOnly && !!plan && document.getElementById('lv-repair').checked,
-          title: document.getElementById('lv-title').value.trim(),
-          orientation: document.getElementById('lv-orientation').value,
-          voice: document.getElementById('lv-voice').value || undefined,
-          resolution: document.getElementById('lv-resolution').value,
-          channelKey: document.getElementById('lv-channel-select').value,
-        })
-      });
-      const d = await res.json();
-      if (!d.success) { showToast(d.message || 'Could not start', 'err'); btn.disabled = false; return; }
-      showToast('Video creation started', 'ok');
-      lvTrack(d.job);
-    } catch (err) {
-      showToast('Error: ' + err.message, 'err');
-      btn.disabled = false;
-    }
-  }
-
-  function lvTrack(job) {
-    lvJob = job; lvJobFetchedAt = Date.now();
-    try { localStorage.setItem('lv-job', job.id); } catch (e) {}
-    lvRender();
-    clearInterval(lvPollTimer); clearInterval(lvTickTimer);
-    if (job.status === 'running') {
-      lvPollTimer = setInterval(() => { if (!document.hidden) lvPoll(); }, 3000);
-      lvTickTimer = setInterval(() => { if (!document.hidden) lvRender(); }, 1000);
-    } else {
-      document.getElementById('lv-start-btn').disabled = false;
-      if (job.publish && job.publish.status === 'running') lvWatchPublish();
-    }
-    lvBadge(job.status === 'running');
-  }
-
-  /* Publishing runs on the server; just watch its state (survives refresh / closing the tab) */
-  function lvWatchPublish() {
-    clearInterval(lvPollTimer);
-    lvPollTimer = setInterval(async () => {
-      try {
-        const res = await fetch(BASE_URL + '/api/longvideo/job?id=' + encodeURIComponent(lvJob.id));
-        const d = await res.json();
-        if (!d.success) return;
-        lvJob = d.job; lvJobFetchedAt = Date.now();
-        lvRender();
-        const st = d.job.publish && d.job.publish.status;
-        if (st !== 'running') {
-          clearInterval(lvPollTimer);
-          showToast(st === 'done' ? '✅ Published to YouTube' : '❌ Publish failed: ' + ((d.job.publish && d.job.publish.error) || '').slice(0, 120), st === 'done' ? 'ok' : 'err');
-        }
-      } catch (e) { /* retry next tick */ }
-    }, 3000);
-  }
-
-  function lvBadge(on) {
-    const b = document.getElementById('nav-badge-longvideo');
-    if (b) b.style.display = on ? 'inline-block' : 'none';
-  }
-
-  async function lvPoll() {
-    if (!lvJob) return;
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/job?id=' + encodeURIComponent(lvJob.id));
-      const d = await res.json();
-      if (!d.success) return;
-      const wasRunning = lvJob.status === 'running';
-      lvJob = d.job; lvJobFetchedAt = Date.now();
-      lvRender();
-      if (wasRunning && d.job.status !== 'running') {
-        clearInterval(lvPollTimer); clearInterval(lvTickTimer);
-        document.getElementById('lv-start-btn').disabled = false;
-        lvBadge(false);
-        showToast(d.job.status === 'done' ? '✅ Video ready!' : d.job.status === 'cancelled' ? '🛑 Cancelled' : '❌ Video failed: ' + (d.job.error || '').slice(0, 120), d.job.status === 'done' ? 'ok' : 'err');
-        lvLoadHistory();
-      }
-    } catch (e) { /* transient network error: next tick retries */ }
-  }
-
-  function lvRender() {
-    const card = document.getElementById('lv-progress-card');
-    const j = lvJob;
-    if (!j) { card.style.display = 'none'; lvpShow(null); return; }
-    card.style.display = 'block';
-    const running = j.status === 'running';
-    const since = running ? (Date.now() - lvJobFetchedAt) / 1000 : 0;
-    const elapsed = j.elapsedSec + since;
-    const eta = running && j.etaSec != null ? Math.max(0, j.etaSec - since) : 0;
-    const pct = Math.round(j.progress * 100);
-    const estTotal = j.stages.reduce((a, s) => a + s.estSec, 0);
-    lvpShow(j.status === 'done' && j.videoPath ? '/output/' + encodeURIComponent(j.videoPath.split('/').pop()) : null, j.title, j.input && j.input.orientation === 'vertical');
-    const color = j.status === 'failed' ? 'var(--danger)' : j.status === 'done' ? 'var(--success)' : 'var(--primary)';
-
-    const stages = j.stages.map(s => {
-      const icon = s.status === 'done' ? '✅' : s.status === 'running' ? '⏳' : s.status === 'failed' ? '❌' : '⚪';
-      const live = s.status === 'running' && s.startedAt ? (Date.now() - s.startedAt) / 1000 : null;
-      const spent = s.actualSec != null ? s.actualSec : live;
-      const sp = Math.round(s.fraction * 100);
-      return '<div style="display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid #21262d;' + (s.status === 'pending' ? 'opacity:.55;' : '') + '">' +
-        '<div>' + icon + '</div>' +
-        '<div><div style="font-size:12px;color:#fff;font-weight:600;">' + lvEsc(s.label) + (s.detail && s.status === 'running' ? ' <span style="color:var(--text-muted);font-weight:400;">&middot; ' + lvEsc(s.detail) + '</span>' : '') + '</div>' +
-        (s.status === 'running' ? '<div style="height:4px;background:#21262d;border-radius:2px;margin-top:5px;overflow:hidden;"><div style="height:100%;width:' + sp + '%;background:var(--primary);transition:width .4s;"></div></div>' : '') + '</div>' +
-        '<div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);text-align:right;">' +
-          (spent != null ? '<span style="color:#fff;">' + lvFmt(spent) + '</span> / ' : '') + '~' + lvFmt(s.estSec) + '</div></div>';
-    }).join('');
-
-    let result = '';
-    if (j.status === 'done' && (j.videoPath || j.remote)) {
-      const src = j.videoPath ? '/output/' + encodeURIComponent(j.videoPath.split('/').pop()) : '';
-      const vertical = j.input.orientation === 'vertical';
-      result = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #21262d;">' +
-        '<div style="flex:1;min-width:240px;">' +
-          '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:6px;">' + lvEsc(j.title) + '</div>' +
-          '<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">' + j.scenes + ' scenes &middot; created in <b>' + lvFmt(elapsed) + '</b> (estimated ' + lvFmt(estTotal) + ')' + (j.aiVisuals === false ? ' &middot; visuals assigned by rule (AI unavailable)' : '') + '</div>' +
-          '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-            (src ? '<a href="' + src + '" download class="btn-primary" style="padding:7px 14px;font-size:12px;text-decoration:none;">⬇️ Download MP4</a>' : '') +
-            lvPublishArea(j) +
-          '</div></div>' +
-        '</div>';
-    } else if (j.status === 'failed' || j.status === 'cancelled') {
-      result = '<div style="margin-top:12px;padding:10px;background:var(--danger-bg);border:1px solid var(--danger);border-radius:6px;color:var(--danger);font-size:12px;white-space:pre-wrap;max-height:160px;overflow:auto;">' + lvEsc(j.error) + '</div>';
-    }
-
-    card.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:10px;">' +
-        '<div style="font-size:14px;font-weight:800;color:#fff;">' + (running ? '⏳ Creating video…' : j.status === 'done' ? '✅ Video ready' : j.status === 'cancelled' ? '🛑 Cancelled' : '❌ Failed') + (j.title ? ' <span style="font-weight:400;color:var(--text-muted);">&middot; ' + lvEsc(j.title) + '</span>' : '') + '</div>' +
-        '<div style="font-size:12px;font-family:var(--font-mono);color:var(--text-muted);">elapsed <b style="color:#fff;">' + lvFmt(elapsed) + '</b>' + (running ? ' &middot; remaining ~<b style="color:var(--primary);">' + lvFmt(eta) + '</b>' : '') + ' &middot; estimated ' + lvFmt(estTotal) + '</div>' +
-      '</div>' +
-      (j.adjustNote ? '<div style="font-size:12px;color:var(--primary);margin-bottom:8px;">✍️ ' + lvEsc(j.adjustNote) + '</div>' : '') +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="flex:1;height:10px;background:#21262d;border-radius:5px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + color + ';transition:width .4s;"></div></div><div style="font-size:12px;font-family:var(--font-mono);color:#fff;width:40px;text-align:right;">' + pct + '%</div></div>' +
-      stages + result + lvWarningsHtml(j.warnings) +
-      (running ? '<div style="margin-top:12px;"><button id="lv-cancel-btn" class="btn-primary" style="background:#3a1d1d;border:1px solid var(--danger);color:#ff7b72;padding:7px 16px;font-size:12px;" onclick="lvCancel()">🛑 Cancel creation</button></div>' : '') +
-      (!running && (j.status === 'cancelled' || j.status === 'failed') ? '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">' +
-        (j.canContinue ? '<button id="lv-continue-btn" class="btn-primary" style="background:#238636;border:1px solid #2ea043;padding:7px 16px;font-size:12px;" onclick="lvContinue(\'' + lvEsc(j.id) + '\')">▶️ Continue from last step</button>' : '') +
-        '<button id="lv-restart-btn" class="btn-primary" style="padding:7px 16px;font-size:12px;" onclick="lvRestart(\'' + lvEsc(j.id) + '\')">🔄 Restart from scratch</button>' +
-      '</div>' : '') +
-      (!running && j.finalScript ? '<details style="margin-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);">Final narration used (' + j.finalScript.split(/\s+/).length + ' words)</summary><div style="margin-top:8px;padding:10px;background:#161b22;border:1px solid #21262d;border-radius:6px;font-size:12px;line-height:1.6;color:#c9d1d9;white-space:pre-wrap;max-height:240px;overflow:auto;">' + lvEsc(j.finalScript) + '</div></details>' : '');
-  }
-
-  async function lvCancel() {
-    if (!lvJob || lvJob.status !== 'running') return;
-    if (!confirm('Stop creating this video now? Progress is lost and the cloud render is cancelled.')) return;
-    const btn = document.getElementById('lv-cancel-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
-    try {
-      const r = await fetch(BASE_URL + '/api/longvideo/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: lvJob.id }) });
-      const d = await r.json();
-      if (!d.success) throw new Error(d.message || 'Cancel failed');
-      lvJob = d.job; lvJobFetchedAt = Date.now();
-      clearInterval(lvPollTimer); clearInterval(lvTickTimer);
-      document.getElementById('lv-start-btn').disabled = false;
-      lvBadge(false); lvRender(); lvLoadHistory();
-      showToast('🛑 Video creation cancelled', 'ok');
-    } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = '🛑 Cancel creation'; }
-      showToast('Cancel failed: ' + (e.message || e), 'err');
-    }
-  }
-
-  async function lvContinue(id) {
-    const targetId = id || (lvJob && lvJob.id);
-    if (!targetId) return;
-    if (lvJob && lvJob.status === 'running') {
-      showToast('A video is already being created', 'err');
-      return;
-    }
-    const btn = document.getElementById('lv-continue-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Resuming…'; }
-    try {
-      const r = await fetch(BASE_URL + '/api/longvideo/continue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: targetId }),
-      });
-      const d = await r.json();
-      if (!d.success) throw new Error(d.message || 'Continue failed');
-      lvJob = d.job;
-      lvJobFetchedAt = Date.now();
-      const startBtn = document.getElementById('lv-start-btn');
-      if (startBtn) startBtn.disabled = true;
-      lvBadge(true);
-      lvRender();
-      clearInterval(lvPollTimer);
-      clearInterval(lvTickTimer);
-      lvPollTimer = setInterval(lvPoll, 3000);
-      lvTickTimer = setInterval(lvRender, 1000);
-      lvLoadHistory();
-      showToast('▶️ Resuming video creation from last step', 'ok');
-    } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = '▶️ Continue from last step'; }
-      showToast('Continue failed: ' + (e.message || e), 'err');
-    }
-  }
-
-  async function lvRestart(id) {
-    const targetId = id || (lvJob && lvJob.id);
-    if (!targetId) return;
-    if (lvJob && lvJob.status === 'running') {
-      showToast('A video is already being created', 'err');
-      return;
-    }
-    const btn = document.getElementById('lv-restart-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Restarting…'; }
-    try {
-      const r = await fetch(BASE_URL + '/api/longvideo/restart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: targetId }),
-      });
-      const d = await r.json();
-      if (!d.success) throw new Error(d.message || 'Restart failed');
-      lvJob = d.job;
-      lvJobFetchedAt = Date.now();
-      const startBtn = document.getElementById('lv-start-btn');
-      if (startBtn) startBtn.disabled = true;
-      lvBadge(true);
-      lvRender();
-      clearInterval(lvPollTimer);
-      clearInterval(lvTickTimer);
-      lvPollTimer = setInterval(lvPoll, 3000);
-      lvTickTimer = setInterval(lvRender, 1000);
-      lvLoadHistory();
-      showToast('🔄 Video creation restarted', 'ok');
-    } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = '🔄 Restart from scratch'; }
-      showToast('Restart failed: ' + (e.message || e), 'err');
-    }
-  }
-
-
-  /* ── Long Video player: lives outside the progress card so re-renders never reset playback ── */
-  const lvp = { src: null, ready: false, drag: false, idleT: null };
-  const lvpFmt = (t) => { if (!isFinite(t)) return '0:00'; t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0'); };
-  function lvpShow(src, title, vertical) {
-    const wrap = document.getElementById('lv-player-wrap');
-    if (!src) { wrap.style.display = 'none'; const v = document.getElementById('lvp-video'); if (lvp.src) { v.pause(); v.removeAttribute('src'); v.load(); lvp.src = null; } return; }
-    wrap.style.display = 'block';
-    document.getElementById('lv-player-title').textContent = title || '';
-    document.getElementById('lv-player-frame').style.maxWidth = vertical ? '360px' : '960px';
-    if (lvp.src === src) return; // same video: leave playback untouched
-    lvp.src = src;
-    const v = document.getElementById('lvp-video');
-    v.src = src; v.load();
-    lvpInit();
-    lvpUpdate();
-  }
-  function lvpInit() {
-    if (lvp.ready) return; lvp.ready = true;
-    const root = document.getElementById('lvp'), v = document.getElementById('lvp-video'), bar = document.getElementById('lvp-bar');
-    const $ = (id) => document.getElementById(id);
-    const toggle = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
-    const seekBy = (d) => { if (isFinite(v.duration)) v.currentTime = Math.min(v.duration, Math.max(0, v.currentTime + d)); };
-    const frac = (e) => { const r = bar.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
-    const seekTo = (f) => { if (isFinite(v.duration)) { v.currentTime = f * v.duration; lvpUpdate(); } };
-    const wake = () => { root.classList.remove('idle'); clearTimeout(lvp.idleT); lvp.idleT = setTimeout(() => root.classList.add('idle'), 2500); };
-
-    v.addEventListener('click', toggle);
-    v.addEventListener('dblclick', () => $('lvp-full').click());
-    $('lvp-play').onclick = toggle; $('lvp-back').onclick = () => seekBy(-10); $('lvp-fwd').onclick = () => seekBy(10);
-    $('lvp-mute').onclick = () => { v.muted = !v.muted; lvpUpdate(); };
-    $('lvp-vol').oninput = (e) => { v.volume = Number(e.target.value); v.muted = v.volume === 0; lvpUpdate(); };
-    $('lvp-speed').onchange = (e) => { v.playbackRate = Number(e.target.value); };
-    $('lvp-full').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen && root.requestFullscreen(); };
-
-    bar.addEventListener('pointerdown', (e) => { lvp.drag = true; bar.classList.add('drag'); bar.setPointerCapture(e.pointerId); seekTo(frac(e)); });
-    bar.addEventListener('pointermove', (e) => {
-      const f = frac(e); const tip = $('lvp-tip');
-      tip.textContent = lvpFmt(f * (v.duration || 0)); tip.style.left = (f * 100) + '%';
-      if (lvp.drag) seekTo(f);
-    });
-    const endDrag = () => { lvp.drag = false; bar.classList.remove('drag'); };
-    bar.addEventListener('pointerup', endDrag); bar.addEventListener('pointercancel', endDrag);
-
-    ['timeupdate', 'progress', 'loadedmetadata', 'durationchange', 'play', 'pause', 'volumechange', 'seeking', 'seeked', 'waiting', 'playing'].forEach((ev) => v.addEventListener(ev, lvpUpdate));
-    root.addEventListener('mousemove', wake); root.addEventListener('keydown', wake); wake();
-    root.addEventListener('keydown', (e) => {
-      const k = e.key.toLowerCase();
-      if (k === ' ' || k === 'k') toggle();
-      else if (k === 'arrowleft') seekBy(e.shiftKey ? -10 : -5);
-      else if (k === 'arrowright') seekBy(e.shiftKey ? 10 : 5);
-      else if (k === 'j') seekBy(-10); else if (k === 'l') seekBy(10);
-      else if (k === 'arrowup') { v.volume = Math.min(1, v.volume + 0.1); v.muted = false; }
-      else if (k === 'arrowdown') v.volume = Math.max(0, v.volume - 0.1);
-      else if (k === 'm') v.muted = !v.muted;
-      else if (k === 'f') $('lvp-full').click();
-      else if (/^[0-9]$/.test(k)) seekTo(Number(k) / 10);
-      else return;
-      e.preventDefault();
-    });
-  }
-  function lvpUpdate() {
-    const v = document.getElementById('lvp-video'); if (!v) return;
-    const d = v.duration || 0, t = v.currentTime || 0;
-    document.getElementById('lvp-prog').style.width = (d ? t / d * 100 : 0) + '%';
-    document.getElementById('lvp-knob').style.left = (d ? t / d * 100 : 0) + '%';
-    let buf = 0; for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= t + 0.5) buf = Math.max(buf, v.buffered.end(i));
-    document.getElementById('lvp-buf').style.width = (d ? buf / d * 100 : 0) + '%';
-    document.getElementById('lvp-time').textContent = lvpFmt(t) + ' / ' + lvpFmt(d);
-    document.getElementById('lvp-play').textContent = v.paused ? '▶' : '⏸';
-    document.getElementById('lvp-mute').textContent = v.muted || v.volume === 0 ? '🔇' : '🔊';
-    document.getElementById('lvp').classList.toggle('playing', !v.paused);
-  }
-
-  function lvPublishArea(j) {
-    const p = j.publish;
-    const btn = 'class="btn-primary" style="background:#e53e3e;border-color:#fc8181;padding:7px 14px;font-size:12px;"';
-    if (j.remote && !j.videoPath && !(p && p.status === 'done')) {
-      // the cloud runner already uploaded it to YouTube as private: review it, then make it public
-      return '<a href="' + lvEsc(j.remote.url) + '" target="_blank" class="btn-primary" style="background:#238636;border-color:#2ea043;padding:7px 14px;font-size:12px;text-decoration:none;">▶ Review on YouTube (' + lvEsc(j.remote.privacy) + ')</a>' +
-        (p && p.status === 'failed' ? '<span style="font-size:12px;color:var(--danger);align-self:center;max-width:260px;">❌ ' + lvEsc((p.error || 'Failed').slice(0, 160)) + '</span>' : '') +
-        '<button ' + btn + ' id="lv-publish-btn" onclick="lvPublish()">🌍 Make public</button>';
-    }
-    if (p && p.status === 'running') {
-      return '<span style="font-size:12px;color:var(--primary);align-self:center;">⏳ Publishing to YouTube… ' + (p.pct || 0) + '% <span style="color:var(--text-muted);">(safe to close this page)</span></span>';
-    }
-    if (p && p.status === 'done') {
-      return (p.urls || [{ url: p.url, channelName: '' }]).map(u => '<a href="' + lvEsc(u.url) + '" target="_blank" class="btn-primary" style="background:#238636;border-color:#2ea043;padding:7px 14px;font-size:12px;text-decoration:none;">▶ View on YouTube' + (u.channelName ? ' (' + lvEsc(u.channelName) + ')' : '') + '</a>').join(' ');
-    }
-    return (p && p.status === 'failed' ? '<span style="font-size:12px;color:var(--danger);align-self:center;max-width:260px;">❌ ' + lvEsc((p.error || 'Publish failed').slice(0, 160)) + '</span>' : '') +
-      '<button ' + btn + ' id="lv-publish-btn" onclick="lvPublish()">' + (p && p.status === 'failed' ? '🔁 Retry publish' : '🚀 Publish to YouTube') + '</button>';
-  }
-
-  async function lvPublish() {
-    const j = lvJob;
-    if (!j || !(j.videoPath || j.remote)) return;
-    const btn = document.getElementById('lv-publish-btn');
-    btn.disabled = true; btn.innerText = '⏳ Starting…';
-    try {
-      if (j.publish && j.publish.status === 'failed') {
-        await fetch(BASE_URL + '/api/longvideo/publish/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId: j.id }) });
-      }
-      const res = await fetch(BASE_URL + '/api/longvideo/publish', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: j.id, channelKey: document.getElementById('lv-channel-select').value || j.input.channelKey })
-      });
-      const d = await res.json();
-      if (!d.success) { showToast(d.message || 'Publish failed', 'err'); btn.disabled = false; btn.innerText = '🚀 Publish to YouTube'; return; }
-      lvJob = Object.assign({}, lvJob, { publish: d.publish });
-      lvRender();
-      lvWatchPublish();
-    } catch (err) { showToast('Error: ' + err.message, 'err'); btn.disabled = false; btn.innerText = '🚀 Publish to YouTube'; }
-  }
-
-  async function lvLoadHistory() {
-    try {
-      const res = await fetch(BASE_URL + '/api/longvideo/jobs');
-      const d = await res.json();
-      if (!d.success) return;
-      const el = document.getElementById('lv-history');
-      window._lvJobs = d.jobs;
-      el.innerHTML = d.jobs.length ? d.jobs.map((j, i) =>
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #21262d;cursor:pointer;" onclick="lvOpenJob(' + i + ')">' +
-          '<span style="color:#fff;">' + (j.status === 'done' ? '✅' : j.status === 'cancelled' ? '🛑' : j.status === 'failed' ? '❌' : '⏳') + ' ' + lvEsc(j.title || j.input.script.slice(0, 60)) + '</span>' +
-          '<div style="display:flex;align-items:center;gap:8px;">' +
-            ((j.status === 'cancelled' || j.status === 'failed') ?
-              (j.canContinue ? '<button class="btn-primary" style="background:#238636;border:1px solid #2ea043;padding:2px 8px;font-size:11px;" onclick="event.stopPropagation();lvContinue(\'' + lvEsc(j.id) + '\')">▶️ Continue</button>' : '') +
-              '<button class="btn-primary" style="padding:2px 8px;font-size:11px;" onclick="event.stopPropagation();lvRestart(\'' + lvEsc(j.id) + '\')">🔄 Restart</button>' : '') +
-            '<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">' + new Date(j.createdAt).toLocaleString() + ' &middot; ' + lvFmt(j.elapsedSec) + '</span>' +
-          '</div></div>').join('') : 'No videos yet.';
-      return d.jobs;
-    } catch (e) {}
-  }
-
-  async function lvOpenJob(i) {
-    const j = window._lvJobs && window._lvJobs[i]; if (!j) return;
-    lvTrack(j);
-    try { const r = await fetch(BASE_URL + '/api/longvideo/job?id=' + encodeURIComponent(j.id)); const d = await r.json(); if (d.success) { lvJob = d.job; lvJobFetchedAt = Date.now(); lvRender(); } } catch (e) {}
-  }
-
-  /* Called on tab open and page load: resume a running job, or show the last one */
-  async function lvOnOpen() {
-    if (lvJob && lvJob.status === 'running') return;
-    const jobs = await lvLoadHistory();
-    if (!jobs || !jobs.length) return;
-    let saved = null; try { saved = localStorage.getItem('lv-job'); } catch (e) {}
-    // running job first, then the one this browser last opened, else the newest (jobs started elsewhere, e.g. API, never set localStorage)
-    const pick = jobs.find(j => j.status === 'running') || jobs.find(j => j.id === saved) || jobs[0];
-    if (!pick) return;
-    lvTrack(pick);
-    if (pick.status !== 'running') {
-      try { const r = await fetch(BASE_URL + '/api/longvideo/job?id=' + encodeURIComponent(pick.id)); const d = await r.json(); if (d.success) { lvJob = d.job; lvJobFetchedAt = Date.now(); lvRender(); } } catch (e) {}
-    }
-  }
-  document.addEventListener('DOMContentLoaded', () => { lvOnOpen(); });
 
   /* ─── CHANNEL FOCUS ─── */
   function focusChannelProfile(key) {
@@ -1691,34 +805,14 @@
   }
 
   /* ─── FETCH ─── */
-  let _connFails = 0;
-  function updateConnPill() {
-    const dot = document.getElementById('conn-dot');
-    const txt = document.getElementById('conn-text');
-    if (!dot || !txt) return;
-    if (_connFails === 0) { dot.style.background = 'var(--success)'; txt.textContent = 'Live'; }
-    else if (_connFails < 3) { dot.style.background = 'var(--warning)'; txt.textContent = 'Reconnecting…'; }
-    else { dot.style.background = 'var(--danger)'; txt.textContent = 'Offline — server unreachable'; }
-  }
   async function fetchDashboardData() {
     try {
       const res = await fetch(BASE_URL + '/api/dashboard');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       globalDashboardData = data;
-      _connFails = 0; updateConnPill();
       renderDashboard(data);
-    } catch(e) {
-      _connFails++; updateConnPill();
-      console.error('Dashboard fetch failed:', e);
-    }
-  }
-
-  async function manualRefresh(btn) {
-    if (btn) { btn.disabled = true; const t = btn.textContent; btn.textContent = '⏳ Refreshing…'; setTimeout(() => { btn.disabled = false; btn.textContent = t; }, 1200); }
-    await fetchDashboardData();
-    await fetchPendingReviews();
-    if (activeTab === 'config') { renderConfigTab(globalDashboardData && globalDashboardData.channels, { force: true }); loadChannelTokenStatus(true); }
+    } catch(e) { console.error('Dashboard fetch failed:', e); }
   }
 
   function deduplicateChannels(arr) {
@@ -1746,10 +840,7 @@
       renderChannelsList(data.channels);
       renderActivityTable(data.recentActivity || data.recentHistory);
       renderQueueTable(data.queue);
-      // Config is a settings screen — only (re)build it while it's on screen, and
-      // never on the polling tick (it would wipe half-typed inputs + refire the
-      // per-channel credential / Meta-token checks every few seconds).
-      if (activeTab === 'config') renderConfigTab(data.channels);
+      renderConfigTab(data.channels);
       if (data.viralAnalytics) renderViralSection(data.viralAnalytics);
     } catch(e) { console.error('renderDashboard error:', e); }
   }
@@ -1799,10 +890,9 @@
     });
 
     /* Sync inject selects */
-    ['inject-target-channel-select','inject-tab-channel-select','ai-gen-channel-select','lv-channel-select'].forEach(selId => {
+    ['inject-target-channel-select','inject-tab-channel-select'].forEach(selId => {
       const sel = document.getElementById(selId);
-      if (!sel) return;
-      sel.innerHTML = '';
+      if (!sel || sel.children.length > 0) return;
       list.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.key; opt.textContent = c.name + ' (' + c.handle + ')';
@@ -2175,19 +1265,48 @@
   }
 
   /* ─── PREVIEW ACTIONS ─── */
-  function publishPreview() {
-    showToast('✅ Reel approved — dispatching to platforms!');
-    const outCard = document.getElementById('output-preview-card');
-    if (outCard) outCard.style.display = 'none';
-    const badge = document.getElementById('stepper-status-badge');
-    if (badge) { badge.className = 'status-badge status-published'; badge.textContent = '✓ Published'; }
-    fetchDashboardData();
+  async function publishPreview() {
+    showToast('🚀 Approving reel & dispatching to platforms...');
+    try {
+      const res = await fetch(BASE_URL + '/api/publish-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: currentActiveJobId || '' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || '✅ Reel approved — uploading!');
+        const outCard = document.getElementById('output-preview-card');
+        const liveLogCard = document.getElementById('pipeline-live-log-card');
+        const streamStatus = document.getElementById('pipeline-stream-status');
+        if (outCard) outCard.style.display = 'none';
+        if (liveLogCard) liveLogCard.style.display = 'flex';
+        if (streamStatus) streamStatus.textContent = 'Publishing to platforms...';
+        setStepState(6, 'active', 'Uploading to platforms…');
+        fetchDashboardData();
+      } else {
+        showToast(data.message || 'Publish failed', 'err');
+      }
+    } catch {
+      showToast('Network error publishing reel', 'err');
+    }
   }
 
-  function discardPreview() {
+  async function discardPreview() {
     if (!confirm('Discard this rendered video?')) return;
-    showToast('🗑 Reel discarded', 'warn');
-    resetAllSteps();
+    try {
+      const res = await fetch(BASE_URL + '/api/discard-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: currentActiveJobId || '' })
+      });
+      const data = await res.json();
+      showToast(data.message || '🗑 Reel discarded', 'warn');
+      resetAllSteps();
+      fetchDashboardData();
+    } catch {
+      showToast('Failed to discard reel', 'err');
+    }
   }
 
   /* ─── INJECT LINK ─── */
@@ -2217,6 +1336,7 @@
       const data = await res.json();
       if (data.success) {
         showToast('⚡ Reel injected into ' + targetChannel + ' pipeline!');
+        if (data.jobId) currentActiveJobId = data.jobId;
         if (urlInput) urlInput.value = '';
         setStepState(1, 'active', 'Queued in database — awaiting runner…');
         fetchDashboardData();
@@ -2230,1027 +1350,92 @@
     }
   }
 
-  /* ─── CONFIG TAB & CHANNEL STORE ─── */
-  let storedChannelsCache = [];
-
-  async function fetchStoredChannels() {
-    try {
-      const res = await fetch(BASE_URL + '/api/channels');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.channels)) {
-        storedChannelsCache = data.channels;
-        return data.channels;
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  let _configRenderSig = null;
-  let _configRendering = false;
-  async function renderConfigTab(channels, opts) {
-    opts = opts || {};
+  /* ─── CONFIG TAB ─── */
+  function renderConfigTab(channels) {
     const container = document.getElementById('config-cards-list');
     if (!container) return;
-    if (_configRendering) return;
-
-    // Don't rebuild the DOM out from under someone editing a field.
-    const active = document.activeElement;
-    if (!opts.force && active && active.closest && active.closest('#config-cards-list')) return;
-
-    _configRendering = true;
-    try {
-      if (!container.children.length) {
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:12px;">⏳ Loading configuration…</div>';
-      }
-
-      // Fetch latest persisted channel configs from DB
-      const dbChannels = await fetchStoredChannels();
-      const list = deduplicateChannels((dbChannels && dbChannels.length > 0) ? dbChannels : (channels || []));
-      const filtered = focusedChannel === 'all' ? list : list.filter(c => c.key === focusedChannel);
-
-      // Skip the rebuild if nothing structural changed since last render.
-      const sig = JSON.stringify(filtered.map(c => [c.key, c.brandName, c.handle, c.niche,
-        (c.instagramAccounts || []).length, (c.youtubeChannels || []).length,
-        c.dailyCount, c.searchMode, c.scheduleTime, c.videoMode, c.subtitleStyle]));
-      if (!opts.force && sig === _configRenderSig && container.querySelector('.config-card')) {
-        _configRendering = false;
-        return;
-      }
-      _configRenderSig = sig;
-      container.innerHTML = '';
-      renderConfigCards(filtered);
-    } catch (e) {
-      console.error('renderConfigTab error:', e);
-      if (!container.querySelector('.config-card')) {
-        container.innerHTML = '<div style="padding:20px;background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);border-radius:8px;color:var(--danger);font-size:12px;">❌ Could not load configuration: ' + (e && e.message ? e.message : e) + ' <button class="btn-icon" style="margin-left:8px;font-size:11px;" onclick="renderConfigTab(null,{force:true})">Retry</button></div>';
-      }
-    } finally {
-      _configRendering = false;
-    }
-  }
-
-  function renderConfigCards(filtered) {
-    const container = document.getElementById('config-cards-list');
-
+    const defaults = [
+      { key:'codeorcap', name:'CodeOrCap', color:'primary', initials:'CO', handle:'@codeorcap', dailyLimit:6, queueCount:0, stats:{publishedCount:0}, searchMode:'hashtags', nicheHashtags:[], defaultHashtags:[], watchedChannels:[], excludeChannels:[] },
+      { key:'storiyum',  name:'Storiyum',  color:'purple',  initials:'ST', handle:'@storiyum',  dailyLimit:6, queueCount:0, stats:{publishedCount:0}, searchMode:'hashtags', nicheHashtags:[], defaultHashtags:[], watchedChannels:[], excludeChannels:[] },
+      { key:'prompt_gag',name:'PromptGag', color:'warning', initials:'PG', handle:'@prompt_gag',dailyLimit:6, queueCount:0, stats:{publishedCount:0}, searchMode:'hashtags', nicheHashtags:[], defaultHashtags:[], watchedChannels:[], excludeChannels:[] },
+      { key:'infoonspot',name:'InfoOnSpot',color:'teal',    initials:'IO', handle:'@infoonspot',dailyLimit:5, queueCount:0, stats:{publishedCount:0}, searchMode:'hashtags', nicheHashtags:[], defaultHashtags:[], watchedChannels:[], excludeChannels:[] }
+    ];
+    const list = deduplicateChannels((channels && channels.length > 0) ? channels : defaults);
+    const filtered = focusedChannel === 'all' ? list : list.filter(c => c.key === focusedChannel);
+    container.innerHTML = '';
     filtered.forEach(c => {
       const card = document.createElement('div');
       card.className = 'config-card';
-      card.setAttribute('data-channel-key', c.key);
-      card.style.marginBottom = '20px';
-      const dailyLimit = c.dailyCount || c.dailyLimit || 5;
-      const isDefault = c.key === 'codeorcap' || c.isDefault;
-      const nicheColors = { tech: 'primary', stories: 'purple', humor: 'warning' };
-      const nicheBadgeColor = nicheColors[c.niche] || 'primary';
-
-      card.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid #21262d;padding-bottom:12px;flex-wrap:wrap;gap:10px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="avatar-box avatar-${nicheBadgeColor}" style="font-weight:800;font-size:14px;">${(c.brandName || c.name || c.key).slice(0,2).toUpperCase()}</div>
-            <div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-weight:800;color:#fff;font-size:16px;">${c.brandName || c.name}</span>
-                <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;background:var(--card-border);text-transform:uppercase;color:var(--text-muted);">${c.niche || 'tech'}</span>
-                ${isDefault ? '<span style="font-size:9px;background:rgba(88,166,255,0.2);color:var(--primary);border:1px solid rgba(88,166,255,0.4);border-radius:4px;padding:1px 5px;font-weight:700;">DEFAULT</span>' : ''}
-              </div>
-              <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">
-                ${c.handle} · <span style="color:var(--success);font-weight:600;">Active in Database</span>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            ${!isDefault ? `<button class="btn-icon" style="color:var(--danger);border-color:rgba(248,81,73,0.4);" onclick="deleteChannelProfile('${c.key}')">🗑️ Delete</button>` : ''}
-            <button class="btn-primary" style="padding:6px 14px;font-size:12px;" onclick="saveChannelConfigFromCard('${c.key}', this)">💾 Save Config</button>
-          </div>
-        </div>
-
-        <!-- 1. IDENTITY & NICHE -->
-        <div style="background:#0d1117;padding:14px;border-radius:8px;border:1px solid #21262d;margin-bottom:14px;">
-          <div style="font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:10px;letter-spacing:0.5px;">🏷️ Channel Identity</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Brand Display Name</label>
-              <input class="input-field cfg-field-name" value="${c.brandName || c.name || ''}" style="padding:6px 10px;font-size:12px;">
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Brand Handle</label>
-              <input class="input-field cfg-field-handle" value="${c.handle || ''}" style="padding:6px 10px;font-size:12px;">
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Niche Content Theme</label>
-              <input class="input-field cfg-field-niche" value="${c.niche || ''}" placeholder="e.g. tech, fitness, finance" list="niche-suggestions" style="padding:6px 10px;font-size:12px;">
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. SOCIAL PUBLISHING CREDENTIALS (MULTI-ACCOUNT) -->
-        <div style="background:#0d1117;padding:14px;border-radius:8px;border:1px solid #21262d;margin-bottom:14px;">
-          <div style="font-size:11px;font-weight:800;color:var(--success);text-transform:uppercase;margin-bottom:10px;letter-spacing:0.5px;">📱 Social Media Publishing Destinations</div>
-          
-          <!-- INSTAGRAM ACCOUNTS LIST -->
-          <div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-              <span style="font-size:11px;font-weight:700;color:var(--text-muted);">📷 Instagram / Facebook Publishing <span id="ig-token-status-${c.key}" style="font-weight:600;font-size:10px;margin-left:4px;">…</span></span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="btn-primary" style="padding:2px 10px;font-size:10px;background:#1877F2;border-color:#1877F2;" data-meta-connect onclick="connectMetaOAuth('${c.key}')">🔗 Connect with Facebook</button>
-                <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;color:#58a6ff;border-color:rgba(88,166,255,0.4);" onclick="openPickIgModal('${c.key}')">🔍 Pick (paste token)</button>
-                <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;" onclick="addCardIgRow(this)">➕ Add Manual</button>
-              </div>
-            </div>
-            <div class="cfg-ig-list" style="display:flex;flex-direction:column;gap:6px;">
-              ${((c.instagramAccounts && c.instagramAccounts.length > 0) ? c.instagramAccounts : (c.instagramAccessToken || c.instagramUserId ? [{ name: (c.brandName || c.name || '') + ' Instagram', igUserId: c.instagramUserId || '', accessToken: c.instagramAccessToken || '' }] : [{ name: 'Primary Instagram', igUserId: '', accessToken: '' }])).map(acc => `
-                <div class="cfg-ig-row" style="display:grid;grid-template-columns:130px 1fr 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:6px;border:1px solid #21262d;">
-                  <input class="input-field cfg-ig-name" value="${acc.name || ''}" placeholder="Account Name" style="padding:5px 8px;font-size:11px;">
-                  <input class="input-field cfg-ig-id" value="${acc.igUserId || ''}" placeholder="Instagram User ID" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-                  <input class="input-field cfg-ig-token" type="password" value="${acc.accessToken || ''}" placeholder="Access Token (EAAB...)" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-                  <button type="button" class="btn-icon" style="color:var(--danger);padding:3px 6px;font-size:11px;" onclick="this.closest('.cfg-ig-row').remove()" title="Remove">✕</button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- INSTAGRAM SCRAPER LOGIN (session cookie used to READ reels) -->
-          <div style="margin-bottom:12px;border-top:1px solid #21262d;padding-top:10px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-              <span style="font-size:11px;font-weight:700;color:var(--text-muted);">🔑 Instagram Scraper Login <span style="font-weight:500;opacity:0.7;">(session cookie — reads competitor / hashtag reels)</span></span>
-              <span id="scraper-cred-status-${c.key}" style="font-size:10px;color:var(--text-muted);"></span>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr;gap:6px;">
-              <input class="input-field" id="scraper-sessionid-${c.key}" type="password" placeholder="Paste fresh sessionid cookie (from a logged-in browser)" style="padding:6px 10px;font-size:11px;font-family:var(--font-mono);">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                <input class="input-field" id="scraper-username-${c.key}" placeholder="Username (for auto-login only)" style="padding:6px 10px;font-size:11px;">
-                <input class="input-field" id="scraper-password-${c.key}" type="password" placeholder="Password (for auto-login only)" style="padding:6px 10px;font-size:11px;">
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                <input class="input-field" id="scraper-totp-${c.key}" placeholder="TOTP secret (optional, if 2FA on)" style="padding:6px 10px;font-size:11px;font-family:var(--font-mono);">
-                <input class="input-field" id="scraper-proxy-${c.key}" placeholder="Proxy URL (optional)" style="padding:6px 10px;font-size:11px;font-family:var(--font-mono);">
-              </div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="btn-primary" style="padding:5px 12px;font-size:11px;" onclick="saveScraperCred('${c.key}', this)">💾 Save Session</button>
-                <button type="button" class="btn-icon" style="padding:5px 12px;font-size:11px;color:#58a6ff;border-color:rgba(88,166,255,0.4);" onclick="runAutoSession('${c.key}', this)">⚡ Auto-login (username + password)</button>
-              </div>
-              <div style="font-size:10px;color:var(--text-muted);line-height:1.5;">Chrome → instagram.com (logged in) → DevTools → Application → Cookies → copy <code>sessionid</code>. Proxy/TOTP are only needed to make <em>auto-login</em> work from the server.</div>
-            </div>
-          </div>
-
-          <!-- YOUTUBE CHANNELS LIST -->
-          <div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-              <span style="font-size:11px;font-weight:700;color:var(--text-muted);">▶ YouTube Channels</span>
-              <div style="display:flex;gap:6px;">
-                <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;color:#58a6ff;border-color:rgba(88,166,255,0.4);" onclick="connectYouTubeOAuth('${c.key}')">🔑 Sign-in with Google</button>
-                <button type="button" class="btn-icon" style="padding:2px 8px;font-size:10px;" onclick="addCardYtRow(this)">➕ Add Manual</button>
-              </div>
-            </div>
-            <div class="cfg-yt-list" style="display:flex;flex-direction:column;gap:6px;">
-              ${((c.youtubeChannels && c.youtubeChannels.length > 0) ? c.youtubeChannels : (c.youtubeRefreshToken ? [{ name: c.brandName || c.name || 'Primary YouTube', refreshToken: c.youtubeRefreshToken || '' }] : [{ name: 'Primary YouTube', refreshToken: '' }])).map(ch => `
-                <div class="cfg-yt-row" style="display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:6px;border:1px solid #21262d;">
-                  <input class="input-field cfg-yt-name" value="${ch.name || ''}" placeholder="Channel Name" style="padding:5px 8px;font-size:11px;">
-                  <input class="input-field cfg-yt-token" type="password" value="${ch.refreshToken || ''}" placeholder="Refresh Token (1//04...)" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-                  <button type="button" class="btn-icon" style="color:var(--danger);padding:3px 6px;font-size:11px;" onclick="this.closest('.cfg-yt-row').remove()" title="Remove">✕</button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- FACEBOOK -->
-          <div style="border-top:1px solid #21262d;padding-top:10px;">
-            <span style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:6px;">📘 Facebook Page (Optional)</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div>
-                <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Page ID</label>
-                <input class="input-field cfg-field-fb-id" value="${c.facebookPageId || ''}" placeholder="1244228672098266" style="padding:6px 10px;font-size:11px;font-family:var(--font-mono);">
-              </div>
-              <div>
-                <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Access Token</label>
-                <input class="input-field cfg-field-fb-token" type="password" value="${c.facebookAccessToken || ''}" placeholder="EAAB..." style="padding:6px 10px;font-size:11px;font-family:var(--font-mono);">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. AUTOMATION & WATCHER SETTINGS -->
-        <div style="background:#0d1117;padding:14px;border-radius:8px;border:1px solid #21262d;">
-          <div style="font-size:11px;font-weight:800;color:var(--warning);text-transform:uppercase;margin-bottom:10px;letter-spacing:0.5px;">⚙️ Automated Watcher & Outro Settings</div>
-          
-          <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">
-            <span>Daily Reel Limit</span>
-            <span style="color:var(--primary);font-family:var(--font-mono);" id="limit-label-${c.key}">${dailyLimit} reels/day</span>
-          </div>
-          <input type="range" class="cfg-range cfg-field-daily" min="1" max="20" step="1" value="${dailyLimit}" style="width:100%;accent-color:var(--primary);margin-bottom:12px;" oninput="setElText('limit-label-${c.key}', this.value + ' reels/day')">
-
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Search Mode</label>
-              <select class="select-field cfg-field-searchmode" style="width:100%;padding:6px 10px;font-size:12px;">
-                <option value="channels" ${c.searchMode === 'channels' ? 'selected' : ''}>Competitor Watchlist</option>
-                <option value="hashtags" ${c.searchMode === 'hashtags' ? 'selected' : ''}>Global Hashtags</option>
-                <option value="both" ${c.searchMode === 'both' ? 'selected' : ''}>Both (Channels + Tags)</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Schedule Time</label>
-              <input class="input-field cfg-field-time" value="${c.scheduleTime || '09:00'}" style="padding:6px 10px;font-size:12px;">
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Outro Version</label>
-              <select class="select-field cfg-field-outro" style="width:100%;padding:6px 10px;font-size:12px;">
-                <option value="v2" ${(c.outroVersion || 'v2') === 'v2' ? 'selected' : ''}>v2 (Pexels b-roll)</option>
-                <option value="v1" ${c.outroVersion === 'v1' ? 'selected' : ''}>v1 (Classic)</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Generation Engine</label>
-              <select class="select-field cfg-field-videomode" style="width:100%;padding:6px 10px;font-size:12px;">
-                <option value="curator" ${(c.videoMode || 'curator') === 'curator' ? 'selected' : ''}>Curator (Scrape & Remix - Default)</option>
-                <option value="faceless_ai" ${c.videoMode === 'faceless_ai' ? 'selected' : ''}>AI Multi-Scene Creator (Faceless)</option>
-                <option value="hybrid" ${c.videoMode === 'hybrid' ? 'selected' : ''}>Hybrid (Both)</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Subtitle Style</label>
-              <select class="select-field cfg-field-substyle" style="width:100%;padding:6px 10px;font-size:12px;">
-                <option value="classic" ${(c.subtitleStyle || 'classic') === 'classic' ? 'selected' : ''}>Classic Gold Highlight (Default)</option>
-                <option value="animated_pop" ${c.subtitleStyle === 'animated_pop' ? 'selected' : ''}>Animated Pop-up / Karaoke</option>
-                <option value="minimal" ${c.subtitleStyle === 'minimal' ? 'selected' : ''}>Minimal Modern Bar</option>
-                <option value="none" ${c.subtitleStyle === 'none' ? 'selected' : ''}>No Subtitles</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="margin-bottom:10px;">
-            <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">Competitor Watch Channels (comma-separated usernames)</label>
-            <textarea class="input-field cfg-field-watchlist" style="width:100%;height:60px;padding:6px 10px;font-size:11px;font-family:var(--font-mono);" placeholder="e.g. pubity, 9gag, memezar">${(Array.isArray(c.watchChannels) ? c.watchChannels : (c.watchedChannels || [])).join(', ')}</textarea>
-          </div>
-        </div>
-      `;
-      container.appendChild(card);
-      loadScraperCred(c.key);
-    });
-    loadChannelTokenStatus();
-  }
-
-  // Meta publish-token health badges on each channel card.
-  let _metaConfigured = true;
-  async function loadChannelTokenStatus(force) {
-    document.querySelectorAll('[id^="ig-token-status-"]').forEach(el => {
-      if (!el.textContent || el.textContent === '…') { el.textContent = 'checking token…'; el.style.color = 'var(--text-muted)'; }
-    });
-    let d;
-    try {
-      const res = await fetch(BASE_URL + '/api/channels/token-status' + (force ? '?force=1' : ''));
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      d = await res.json();
-    } catch (e) {
-      document.querySelectorAll('[id^="ig-token-status-"]').forEach(el => {
-        el.textContent = '⚠ couldn’t check token (' + (e.message || e) + ')'; el.style.color = 'var(--warning)';
-      });
-      return;
-    }
-    _metaConfigured = d.metaConfigured !== false;
-    // Enable/disable every "Connect with Facebook" button based on server config.
-    document.querySelectorAll('button[data-meta-connect]').forEach(b => {
-      b.disabled = !_metaConfigured;
-      b.title = _metaConfigured ? 'Log in with Facebook to get a token' : 'Set META_APP_ID and META_APP_SECRET in the server env first';
-      b.style.opacity = _metaConfigured ? '1' : '0.5';
-    });
-    (d.tokens || []).forEach(t => {
-      const el = document.getElementById('ig-token-status-' + t.key);
-      if (!el) return;
-      if (!t.hasToken) { el.textContent = '⚠ no publish token — Connect with Facebook'; el.style.color = 'var(--warning)'; return; }
-      if (t.status === 'valid') {
-        if (!t.expiresAt || t.expiresAt <= 0) { el.textContent = '✓ token OK · never expires'; el.style.color = 'var(--success)'; }
-        else if (t.daysLeft <= 7) { el.textContent = '⚠ token expires in ' + t.daysLeft + 'd — reconnect soon'; el.style.color = 'var(--warning)'; }
-        else { el.textContent = '✓ token OK · ' + t.daysLeft + 'd left'; el.style.color = 'var(--success)'; }
-      } else if (t.status === 'expired') {
-        const on = t.message && t.message.match(/expired on ([^.]+)/);
-        el.textContent = '⛔ TOKEN EXPIRED' + (on ? ' (' + on[1].trim() + ')' : '') + ' — publishing is OFF';
-        el.style.color = 'var(--danger)';
-      } else if (t.status === 'invalid') {
-        el.textContent = '⛔ TOKEN INVALID — ' + (t.message || 'reconnect');
-        el.style.color = 'var(--danger)';
-      } else {
-        el.textContent = '❔ token status unknown (' + (t.message || 'Meta API unreachable') + ')';
-        el.style.color = 'var(--text-muted)';
-      }
-    });
-  }
-
-  // "Connect with Facebook" — opens FB Login, gets a long-lived token, then
-  // reuses the existing account picker to wire it to this channel.
-  function connectMetaOAuth(targetKey) {
-    if (!_metaConfigured) {
-      showToast('Facebook connect is not configured on the server — set META_APP_ID / META_APP_SECRET.', 'err');
-      return;
-    }
-    const w = window.open(BASE_URL + '/api/auth/meta/start?target=' + encodeURIComponent(targetKey),
-      'meta_oauth_window', 'width=600,height=760,menubar=no,toolbar=no');
-    if (!w) showToast('Popup blocked — allow popups for this site.', 'err');
-  }
-
-  async function loadScraperCred(key) {
-    const statusEl = document.getElementById('scraper-cred-status-' + key);
-    try {
-      const res = await fetch(BASE_URL + '/api/channel-credentials?profile=' + encodeURIComponent(key));
-      const d = await res.json();
-      if (!statusEl) return;
-      if (!d.hasCredentials || !d.instagramSessionId) { statusEl.textContent = '⚠ no session stored'; statusEl.style.color = 'var(--warning)'; return; }
-      if (d.sessionExpired) {
-        const since = d.sessionDeadAt ? ' (since ' + new Date(d.sessionDeadAt).toLocaleString() + ')' : '';
-        statusEl.textContent = '⛔ EXPIRED — paste a fresh sessionid' + since;
-        statusEl.style.color = 'var(--danger)';
-      } else {
-        const bits = ['session ' + d.instagramSessionId];
-        if (d.hasSettingsBlob) bits.push('device saved');
-        if (d.updatedAt) bits.push('updated ' + new Date(d.updatedAt).toLocaleDateString());
-        statusEl.textContent = '✓ ' + bits.join(' · ');
-        statusEl.style.color = 'var(--success)';
-      }
-      const u = document.getElementById('scraper-username-' + key);
-      if (u && d.instagramUsername) u.value = d.instagramUsername;
-    } catch (_) { if (statusEl) statusEl.textContent = ''; }
-  }
-
-  // Collect the scraper-login fields for a profile card. Returns a POST body, or
-  // null if the user hasn't entered anything new.
-  function collectScraperCred(key) {
-    const body = { profile: key };
-    const sid = (document.getElementById('scraper-sessionid-' + key) || {}).value || '';
-    const un = (document.getElementById('scraper-username-' + key) || {}).value || '';
-    const pw = (document.getElementById('scraper-password-' + key) || {}).value || '';
-    const totp = (document.getElementById('scraper-totp-' + key) || {}).value || '';
-    const proxy = (document.getElementById('scraper-proxy-' + key) || {}).value || '';
-    if (sid) body.instagramSessionId = sid.trim();
-    if (un) body.instagramUsername = un.trim();
-    if (pw) body.instagramPassword = pw;
-    if (totp) body.instagramTotpSecret = totp.trim();
-    if (proxy) body.instagramProxy = proxy.trim();
-    return Object.keys(body).length === 1 ? null : body;
-  }
-
-  async function postScraperCred(key, body) {
-    const res = await fetch(BASE_URL + '/api/channel-credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const d = await res.json();
-    if (d.success) {
-      ['sessionid', 'password', 'totp'].forEach(f => { const e = document.getElementById('scraper-' + f + '-' + key); if (e) e.value = ''; });
-    }
-    return d;
-  }
-
-  async function saveScraperCred(key, btn) {
-    const body = collectScraperCred(key);
-    if (!body) { alert('Nothing to save — enter a sessionid (or username/password) first'); return; }
-    const old = btn.textContent; btn.textContent = 'Saving…'; btn.disabled = true;
-    try {
-      const d = await postScraperCred(key, body);
-      btn.textContent = d.success ? '✓ Saved' : '✗ ' + (d.message || 'Failed');
-      if (d.success) loadScraperCred(key);
-    } catch (e) { btn.textContent = '✗ Error'; }
-    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2500);
-  }
-
-  async function runAutoSession(key, btn) {
-    const old = btn.textContent; btn.textContent = 'Logging in…'; btn.disabled = true;
-    try {
-      const res = await fetch(BASE_URL + '/api/auto-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile: key }) });
-      const d = await res.json();
-      btn.textContent = d.success ? ('✓ ' + (d.sessionIdPreview || 'got session')) : '✗ ' + (d.message || 'Failed');
-      if (d.success) loadScraperCred(key);
-    } catch (e) { btn.textContent = '✗ Error'; }
-    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 4000);
-  }
-
-  function addModalIgRow(name = '', id = '', token = '') {
-    const list = document.getElementById('new-ch-ig-list');
-    if (!list) return;
-    const row = document.createElement('div');
-    row.className = 'modal-ig-row';
-    row.style.cssText = 'display:grid;grid-template-columns:140px 1fr 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;border:1px solid #21262d;';
-    row.innerHTML = `
-      <input class="input-field modal-ig-name" placeholder="Account Name" value="${name || 'Secondary IG'}" style="padding:6px 8px;font-size:11px;">
-      <input class="input-field modal-ig-id" placeholder="Instagram User ID" value="${id || ''}" style="padding:6px 8px;font-size:11px;font-family:var(--font-mono);">
-      <input class="input-field modal-ig-token" type="password" placeholder="Access Token (EAAB...)" value="${token || ''}" style="padding:6px 8px;font-size:11px;font-family:var(--font-mono);">
-      <button type="button" class="btn-icon" style="color:var(--danger);padding:4px 8px;font-size:11px;" onclick="this.closest('.modal-ig-row').remove()" title="Remove">✕</button>
-    `;
-    list.appendChild(row);
-  }
-
-  function addModalYtRow(name = '', token = '') {
-    const list = document.getElementById('new-ch-yt-list');
-    if (!list) return;
-    const row = document.createElement('div');
-    row.className = 'modal-yt-row';
-    row.style.cssText = 'display:grid;grid-template-columns:140px 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;border:1px solid #21262d;';
-    row.innerHTML = `
-      <input class="input-field modal-yt-name" placeholder="Channel Name" value="${name || 'Secondary YouTube'}" style="padding:6px 8px;font-size:11px;">
-      <input class="input-field modal-yt-token" type="password" placeholder="Refresh Token (1//04...)" value="${token || ''}" style="padding:6px 8px;font-size:11px;font-family:var(--font-mono);">
-      <button type="button" class="btn-icon" style="color:var(--danger);padding:4px 8px;font-size:11px;" onclick="this.closest('.modal-yt-row').remove()" title="Remove">✕</button>
-    `;
-    list.appendChild(row);
-  }
-
-  function addCardIgRow(btnEl) {
-    const list = btnEl.closest('div').parentElement.querySelector('.cfg-ig-list');
-    if (!list) return;
-    const row = document.createElement('div');
-    row.className = 'cfg-ig-row';
-    row.style.cssText = 'display:grid;grid-template-columns:130px 1fr 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:6px;border:1px solid #21262d;';
-    row.innerHTML = `
-      <input class="input-field cfg-ig-name" value="Extra Instagram" placeholder="Account Name" style="padding:5px 8px;font-size:11px;">
-      <input class="input-field cfg-ig-id" value="" placeholder="Instagram User ID" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-      <input class="input-field cfg-ig-token" type="password" value="" placeholder="Access Token (EAAB...)" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-      <button type="button" class="btn-icon" style="color:var(--danger);padding:3px 6px;font-size:11px;" onclick="this.closest('.cfg-ig-row').remove()" title="Remove">✕</button>
-    `;
-    list.appendChild(row);
-  }
-
-  function addCardYtRow(btnEl) {
-    const list = btnEl.closest('div').parentElement.querySelector('.cfg-yt-list');
-    if (!list) return;
-    const row = document.createElement('div');
-    row.className = 'cfg-yt-row';
-    row.style.cssText = 'display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:6px;border:1px solid #21262d;';
-    row.innerHTML = `
-      <input class="input-field cfg-yt-name" value="Extra YouTube" placeholder="Channel Name" style="padding:5px 8px;font-size:11px;">
-      <input class="input-field cfg-yt-token" type="password" value="" placeholder="Refresh Token (1//04...)" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-      <button type="button" class="btn-icon" style="color:var(--danger);padding:3px 6px;font-size:11px;" onclick="this.closest('.cfg-yt-row').remove()" title="Remove">✕</button>
-    `;
-    list.appendChild(row);
-  }
-
-  /* ─── OAUTH & META PICKER HELPERS ─── */
-  let pickIgTargetKey = null;
-
-  function openPickIgModal(targetKey) {
-    pickIgTargetKey = targetKey;
-    const modal = document.getElementById('modal-pick-ig');
-    if (modal) modal.style.display = 'block';
-
-    // Pre-populate token if available from card or modal
-    let existingToken = '';
-    if (targetKey === 'modal') {
-      existingToken = document.querySelector('#new-ch-ig-list .modal-ig-token')?.value || '';
-    } else {
-      const card = document.querySelector(`.config-card[data-channel-key="${targetKey}"]`);
-      if (card) {
-        existingToken = card.querySelector('.cfg-ig-token')?.value || card.querySelector('.cfg-field-fb-token')?.value || '';
-      }
-    }
-    const tokenInput = document.getElementById('pick-ig-token');
-    if (tokenInput && existingToken) tokenInput.value = existingToken;
-
-    inspectMetaAccounts();
-  }
-
-  function closePickIgModal() {
-    const modal = document.getElementById('modal-pick-ig');
-    if (modal) modal.style.display = 'none';
-  }
-
-  async function inspectMetaAccounts() {
-    const token = (document.getElementById('pick-ig-token')?.value || '').trim();
-    const container = document.getElementById('pick-ig-list-container');
-    if (!container) return;
-
-    container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">⏳ Detecting accounts from Meta Graph API...</div>';
-
-    try {
-      const res = await fetch(BASE_URL + '/api/meta/inspect-accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        container.innerHTML = `<div style="padding:16px;background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);border-radius:8px;color:var(--danger);font-size:12px;">
-          ❌ ${data.message || 'Failed to inspect accounts'}
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Make sure your Meta Access Token has <code>pages_show_list</code> and <code>instagram_basic</code> permissions.</div>
-        </div>`;
-        return;
-      }
-
-      if (!data.accounts || data.accounts.length === 0) {
-        container.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">
-          No Facebook Pages or linked Instagram Professional accounts found for this token.
-        </div>`;
-        return;
-      }
-
-      container.innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          ${data.accounts.map(acc => `
-            <div style="display:flex;align-items:center;justify-content:space-between;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 14px;gap:12px;">
-              <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;">
-                  ${acc.igAvatar ? `<img src="${acc.igAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : '📷'}
-                </div>
-                <div>
-                  <div style="font-size:13px;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px;">
-                    <span>${acc.igUsername ? '@' + acc.igUsername : (acc.igName || acc.pageName)}</span>
-                    ${acc.igUserId ? '<span style="font-size:9px;background:rgba(56,139,253,0.15);color:#58a6ff;padding:1px 5px;border-radius:4px;border:1px solid rgba(56,139,253,0.3);">INSTAGRAM LINKED</span>' : '<span style="font-size:9px;background:#21262d;color:var(--text-dim);padding:1px 5px;border-radius:4px;">FB PAGE ONLY</span>'}
-                  </div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-                    Page: <b>${acc.pageName}</b> (ID: <span style="font-family:var(--font-mono);">${acc.pageId}</span>)
-                    ${acc.igUserId ? ` · IG ID: <span style="font-family:var(--font-mono);">${acc.igUserId}</span>` : ''}
-                  </div>
-                </div>
-              </div>
-              <button class="btn-primary" style="padding:6px 14px;font-size:11px;white-space:nowrap;" onclick="selectMetaAccount('${acc.igUserId || ''}', '${(acc.igName || acc.igUsername || acc.pageName || '').replace(/'/g, "\\'")}', '${(acc.igUsername || '').replace(/'/g, "\\'")}', '${acc.pageId || ''}', '${(acc.pageName || '').replace(/'/g, "\\'")}', '${(acc.pageAccessToken || '').replace(/'/g, "\\'")}')">
-                👉 Select
-              </button>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    } catch (e) {
-      container.innerHTML = `<div style="padding:16px;background:rgba(248,81,73,0.1);color:var(--danger);font-size:12px;">Error: ${e.message}</div>`;
-    }
-  }
-
-  function selectMetaAccount(igUserId, igName, igUsername, pageId, pageName, pageAccessToken) {
-    if (pickIgTargetKey === 'modal') {
-      const list = document.getElementById('new-ch-ig-list');
-      if (list) {
-        let firstRow = list.querySelector('.modal-ig-row');
-        if (!firstRow || firstRow.querySelector('.modal-ig-id')?.value) {
-          addModalIgRow(igName || ('@' + igUsername) || 'Instagram Account', igUserId, pageAccessToken);
-        } else {
-          firstRow.querySelector('.modal-ig-name').value = igName || ('@' + igUsername) || 'Instagram Account';
-          firstRow.querySelector('.modal-ig-id').value = igUserId;
-          firstRow.querySelector('.modal-ig-token').value = pageAccessToken;
-        }
-      }
-      if (pageId && document.getElementById('new-ch-fb-id')) {
-        document.getElementById('new-ch-fb-id').value = pageId;
-      }
-      if (pageAccessToken && document.getElementById('new-ch-fb-token')) {
-        document.getElementById('new-ch-fb-token').value = pageAccessToken;
-      }
-      showToast(`✅ Linked Instagram: @${igUsername || igName}`, 'ok');
-    } else {
-      const card = document.querySelector(`.config-card[data-channel-key="${pickIgTargetKey}"]`);
-      if (card) {
-        const list = card.querySelector('.cfg-ig-list');
-        if (list) {
-          let emptyRow = Array.from(list.querySelectorAll('.cfg-ig-row')).find(r => !r.querySelector('.cfg-ig-id')?.value);
-          if (emptyRow) {
-            emptyRow.querySelector('.cfg-ig-name').value = igName || ('@' + igUsername) || 'Instagram Account';
-            emptyRow.querySelector('.cfg-ig-id').value = igUserId;
-            emptyRow.querySelector('.cfg-ig-token').value = pageAccessToken;
-          } else {
-            const newRow = document.createElement('div');
-            newRow.className = 'cfg-ig-row';
-            newRow.style.cssText = 'display:grid;grid-template-columns:130px 1fr 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:6px;border:1px solid #21262d;';
-            newRow.innerHTML = `
-              <input class="input-field cfg-ig-name" value="${igName || ('@' + igUsername) || 'Instagram Account'}" placeholder="Account Name" style="padding:5px 8px;font-size:11px;">
-              <input class="input-field cfg-ig-id" value="${igUserId}" placeholder="Instagram User ID" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-              <input class="input-field cfg-ig-token" type="password" value="${pageAccessToken}" placeholder="Access Token (EAAB...)" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-              <button type="button" class="btn-icon" style="color:var(--danger);padding:3px 6px;font-size:11px;" onclick="this.closest('.cfg-ig-row').remove()" title="Remove">✕</button>
-            `;
-            list.appendChild(newRow);
-          }
-        }
-        if (pageId && card.querySelector('.cfg-field-fb-id')) {
-          card.querySelector('.cfg-field-fb-id').value = pageId;
-        }
-        if (pageAccessToken && card.querySelector('.cfg-field-fb-token')) {
-          card.querySelector('.cfg-field-fb-token').value = pageAccessToken;
-        }
-        // Auto-save card changes
-        const saveBtn = card.querySelector('.btn-primary');
-        if (saveBtn) saveChannelConfigFromCard(pickIgTargetKey, saveBtn);
-      }
-      showToast(`✅ Linked & Saved Instagram: @${igUsername || igName}`, 'ok');
-    }
-
-    closePickIgModal();
-  }
-
-  function connectYouTubeOAuth(targetKey) {
-    const authUrl = BASE_URL + '/api/auth/youtube/start?target=' + encodeURIComponent(targetKey);
-    const win = window.open(authUrl, 'yt_oauth_window', 'width=600,height=720,menubar=no,toolbar=no');
-    if (!win) {
-      showToast('Popup was blocked by your browser. Please allow popups for this site.', 'err');
-    }
-  }
-
-  // Window message receiver for Google OAuth callback
-  window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'META_AUTH_SUCCESS') {
-      const { token, target } = event.data;
-      if (!token) { showToast('Facebook connect returned no token', 'err'); return; }
-      showToast('✅ Facebook connected — loading your pages…', 'ok');
-      // Feed the long-lived token into the existing account picker.
-      pickIgTargetKey = target;
-      const modal = document.getElementById('modal-pick-ig');
-      if (modal) modal.style.display = 'block';
-      const tokenInput = document.getElementById('pick-ig-token');
-      if (tokenInput) tokenInput.value = token;
-      inspectMetaAccounts();
-      return;
-    }
-    if (event.data && event.data.type === 'YOUTUBE_AUTH_SUCCESS') {
-      const { channelName, refreshToken, target } = event.data;
-      if (target === 'modal') {
-        const list = document.getElementById('new-ch-yt-list');
-        if (list) {
-          let emptyRow = Array.from(list.querySelectorAll('.modal-yt-row')).find(r => !r.querySelector('.modal-yt-token')?.value);
-          if (emptyRow) {
-            emptyRow.querySelector('.modal-yt-name').value = channelName || 'YouTube Channel';
-            emptyRow.querySelector('.modal-yt-token').value = refreshToken;
-          } else {
-            addModalYtRow(channelName || 'YouTube Channel', refreshToken);
-          }
-        }
-        showToast(`✅ Linked YouTube Channel: [${channelName}]`, 'ok');
-      } else {
-        const card = document.querySelector(`.config-card[data-channel-key="${target}"]`);
-        if (card) {
-          const list = card.querySelector('.cfg-yt-list');
-          if (list) {
-            let emptyRow = Array.from(list.querySelectorAll('.cfg-yt-row')).find(r => !r.querySelector('.cfg-yt-token')?.value);
-            if (emptyRow) {
-              emptyRow.querySelector('.cfg-yt-name').value = channelName || 'YouTube Channel';
-              emptyRow.querySelector('.cfg-yt-token').value = refreshToken;
-            } else {
-              const newRow = document.createElement('div');
-              newRow.className = 'cfg-yt-row';
-              newRow.style.cssText = 'display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:6px;border:1px solid #21262d;';
-              newRow.innerHTML = `
-                <input class="input-field cfg-yt-name" value="${channelName || 'YouTube Channel'}" placeholder="Channel Name" style="padding:5px 8px;font-size:11px;">
-                <input class="input-field cfg-yt-token" type="password" value="${refreshToken}" placeholder="Refresh Token (1//04...)" style="padding:5px 8px;font-size:11px;font-family:var(--font-mono);">
-                <button type="button" class="btn-icon" style="color:var(--danger);padding:3px 6px;font-size:11px;" onclick="this.closest('.cfg-yt-row').remove()" title="Remove">✕</button>
-              `;
-              list.appendChild(newRow);
-            }
-          }
-          // Auto-save card changes
-          const saveBtn = card.querySelector('.btn-primary');
-          if (saveBtn) saveChannelConfigFromCard(target, saveBtn);
-          showToast(`✅ Linked & Saved YouTube Channel: [${channelName}]`, 'ok');
-        } else {
-          showToast(`✅ YouTube Auth Success: [${channelName}]`, 'ok');
-        }
-      }
-    }
-  });
-
-  function openAddChannelModal() {
-    const modal = document.getElementById('modal-add-channel');
-    if (modal) modal.style.display = 'block';
-  }
-
-  function closeAddChannelModal() {
-    const modal = document.getElementById('modal-add-channel');
-    if (modal) modal.style.display = 'none';
-  }
-
-  async function submitAddChannelForm() {
-    const key = (document.getElementById('new-ch-key').value || '').toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
-    const brandName = (document.getElementById('new-ch-name').value || '').trim();
-    const handle = (document.getElementById('new-ch-handle').value || '').trim();
-    const niche = document.getElementById('new-ch-niche').value;
-    
-    // Gather all IG accounts
-    const igRows = Array.from(document.querySelectorAll('#new-ch-ig-list .modal-ig-row'));
-    const instagramAccounts = igRows.map(row => ({
-      name: (row.querySelector('.modal-ig-name')?.value || '').trim(),
-      igUserId: (row.querySelector('.modal-ig-id')?.value || '').trim(),
-      accessToken: (row.querySelector('.modal-ig-token')?.value || '').trim(),
-    })).filter(a => a.igUserId && a.accessToken);
-
-    // Gather all YT channels
-    const ytRows = Array.from(document.querySelectorAll('#new-ch-yt-list .modal-yt-row'));
-    const youtubeChannels = ytRows.map(row => ({
-      name: (row.querySelector('.modal-yt-name')?.value || '').trim(),
-      refreshToken: (row.querySelector('.modal-yt-token')?.value || '').trim(),
-    })).filter(c => c.refreshToken);
-
-    const fbPageId = (document.getElementById('new-ch-fb-id').value || '').trim();
-    const fbAccessToken = (document.getElementById('new-ch-fb-token').value || '').trim();
-    const watchChannels = (document.getElementById('new-ch-watchlist').value || '').split(',').map(s => s.trim().replace(/^@/, '')).filter(Boolean);
-    const searchMode = document.getElementById('new-ch-search-mode').value;
-    const dailyCount = Number(document.getElementById('new-ch-daily').value) || 5;
-    const scheduleTime = (document.getElementById('new-ch-time').value || '09:00').trim();
-    const outroVersion = document.getElementById('new-ch-outro').value;
-
-    if (!key || !brandName || !handle) {
-      showToast('Please fill in required fields (Key, Brand Name, Handle)', 'err');
-      return;
-    }
-
-    if (instagramAccounts.length === 0 && youtubeChannels.length === 0) {
-      showToast('Please provide at least one publishing destination (Instagram or YouTube)', 'err');
-      return;
-    }
-
-    try {
-      const res = await fetch(BASE_URL + '/api/channels/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key,
-          brandName,
-          handle,
-          niche,
-          instagramAccounts,
-          youtubeChannels,
-          facebookPageId: fbPageId || undefined,
-          facebookAccessToken: fbAccessToken || undefined,
-          watchChannels,
-          searchMode,
-          dailyCount,
-          scheduleTime,
-          outroVersion,
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message || `Channel [${brandName}] created and saved!`, 'ok');
-        closeAddChannelModal();
-        fetchDashboardData();
-      } else {
-        showToast(data.message || 'Failed to save channel', 'err');
-      }
-    } catch(e) {
-      showToast('Error saving new channel: ' + e.message, 'err');
-    }
-  }
-
-  async function saveChannelConfigFromCard(key, btnEl) {
-    const card = btnEl.closest('.config-card');
-    if (!card) return;
-
-    const brandName = (card.querySelector('.cfg-field-name')?.value || '').trim();
-    const handle = (card.querySelector('.cfg-field-handle')?.value || '').trim();
-    const niche = card.querySelector('.cfg-field-niche')?.value || 'tech';
-    
-    // Gather all IG accounts in this card
-    const igRows = Array.from(card.querySelectorAll('.cfg-ig-list .cfg-ig-row'));
-    const instagramAccounts = igRows.map(row => ({
-      name: (row.querySelector('.cfg-ig-name')?.value || '').trim(),
-      igUserId: (row.querySelector('.cfg-ig-id')?.value || '').trim(),
-      accessToken: (row.querySelector('.cfg-ig-token')?.value || '').trim(),
-    })).filter(a => a.igUserId && a.accessToken);
-
-    // Gather all YT channels in this card
-    const ytRows = Array.from(card.querySelectorAll('.cfg-yt-list .cfg-yt-row'));
-    const youtubeChannels = ytRows.map(row => ({
-      name: (row.querySelector('.cfg-yt-name')?.value || '').trim(),
-      refreshToken: (row.querySelector('.cfg-yt-token')?.value || '').trim(),
-    })).filter(c => c.refreshToken);
-
-    const fbPageId = (card.querySelector('.cfg-field-fb-id')?.value || '').trim();
-    const fbAccessToken = (card.querySelector('.cfg-field-fb-token')?.value || '').trim();
-    const dailyCount = Number(card.querySelector('.cfg-field-daily')?.value) || 5;
-    const searchMode = card.querySelector('.cfg-field-searchmode')?.value || 'channels';
-    const scheduleTime = (card.querySelector('.cfg-field-time')?.value || '09:00').trim();
-    const outroVersion = card.querySelector('.cfg-field-outro')?.value || 'v2';
-    const videoMode = card.querySelector('.cfg-field-videomode')?.value || 'curator';
-    const subtitleStyle = card.querySelector('.cfg-field-substyle')?.value || 'classic';
-    const watchChannels = (card.querySelector('.cfg-field-watchlist')?.value || '').split(',').map(s => s.trim().replace(/^@/, '')).filter(Boolean);
-
-    try {
-      btnEl.disabled = true;
-      btnEl.innerText = '⏳ Saving...';
-      const res = await fetch(BASE_URL + '/api/channels/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key,
-          brandName,
-          handle,
-          niche,
-          instagramAccounts,
-          youtubeChannels,
-          facebookPageId: fbPageId || undefined,
-          facebookAccessToken: fbAccessToken || undefined,
-          dailyCount,
-          searchMode,
-          scheduleTime,
-          outroVersion,
-          videoMode,
-          subtitleStyle,
-          watchChannels,
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        // Also persist the Instagram scraper-login fields if the user filled any
-        // in — they live in a separate table, so "Save Config" must save them too.
-        const scraperBody = collectScraperCred(key);
-        if (scraperBody) {
-          try {
-            const sc = await postScraperCred(key, scraperBody);
-            if (!sc.success) showToast('Config saved, but scraper login failed: ' + (sc.message || ''), 'err');
-          } catch (_) { showToast('Config saved, but scraper login save errored', 'err'); }
-        }
-        showToast(data.message || `Channel [${brandName}] updated!`, 'ok');
-        btnEl.innerText = '✓ Saved';
-        setTimeout(() => { btnEl.disabled = false; btnEl.innerText = '💾 Save Config'; }, 2000);
-        _configRenderSig = null; // force a rebuild so new tokens/ids show
-        await fetchDashboardData();
-        loadChannelTokenStatus(true);
-      } else {
-        showToast(data.message || 'Failed to save config', 'err');
-        btnEl.disabled = false;
-        btnEl.innerText = '💾 Save Config';
-      }
-    } catch(e) {
-      showToast('Error: ' + e.message, 'err');
-      btnEl.disabled = false;
-      btnEl.innerText = '💾 Save Config';
-    }
-  }
-
-  /* ─── AI FACELESS MULTI-SCENE GENERATOR ─── */
-  async function triggerAiFacelessGeneration() {
-    const channelKey = document.getElementById('ai-gen-channel-select')?.value || 'codeorcap';
-    const format = document.getElementById('ai-gen-format-select')?.value || 'short';
-    const subStyle = document.getElementById('ai-gen-sub-style')?.value || 'classic';
-    const topic = (document.getElementById('ai-gen-topic-input')?.value || '').trim();
-    const btn = document.getElementById('btn-ai-gen');
-    const resultBox = document.getElementById('ai-gen-result-container');
-
-    if (!topic) {
-      showToast('Please enter a topic or script first.', 'err');
-      return;
-    }
-
-    const isLong = format !== 'short';
-    if (btn) {
-      btn.disabled = true;
-      btn.innerText = isLong ? '⏳ Generating 5-Min Video & B-Roll...' : '⏳ Generating Multi-Scene Short...';
-    }
-
-    if (resultBox) {
-      resultBox.style.display = 'block';
-      resultBox.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:12px;">
-          <div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>
-          <span>Writing in-depth script, downloading matching ${isLong ? '16:9 landscape' : '9:16 vertical'} HD B-roll, synthesizing neural voiceover, and assembling video...</span>
-        </div>
-      `;
-    }
-
-    try {
-      const autoPublish = document.getElementById('ai-gen-autopublish')?.checked ?? true;
-      const res = await fetch(BASE_URL + '/api/generate/faceless', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelKey,
-          topic,
-          durationTarget: format,
-          aspectRatio: isLong ? '16:9' : '9:16',
-          subtitleStyle: subStyle,
-          autoPublish: autoPublish,
-        })
-      });
-      const data = await res.json();
-
-      if (!data.success) {
-        if (resultBox) {
-          resultBox.innerHTML = `
-            <div style="color:var(--danger);font-size:12px;padding:8px 0;">
-              ❌ Generation Failed: ${data.message || 'Unknown error'}
-            </div>
-          `;
-        }
-        showToast('Generation failed: ' + (data.message || ''), 'err');
-        return;
-      }
-
-      showToast(`✅ ${isLong ? 'Full 5-Min Video' : 'Short'} Generated Successfully!`, 'ok');
-      const filename = data.videoPath ? data.videoPath.split('/').pop() : '';
-      const videoSrc = filename ? `/output/${encodeURIComponent(filename)}` : '';
-      const is16x9 = data.aspectRatio === '16:9';
-      const publishedUrl = (data.publishedUrls && data.publishedUrls.length > 0) ? (data.publishedUrls[0]?.url || '') : '';
-
-      window._lastGeneratedAiVideo = {
-        videoPath: data.videoPath,
-        channelKey,
-        title: data.metadata?.title || 'Video',
-        description: data.metadata?.description || '',
-        tags: data.metadata?.tags || []
+      const dailyLimit = c.dailyLimit || 6;
+      card.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<div class="avatar-box avatar-' + c.color + '">' + c.initials + '</div>' +
+          '<div><div style="font-weight:700;color:#fff;font-size:15px;">' + c.name + '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);">' + c.handle + ' · <span style="color:var(--success);">Active</span></div></div>' +
+        '</div><button class="btn-icon save-cfg-btn" disabled>💾 Save</button></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">' +
+          '<div style="background:var(--bg);padding:12px;border-radius:8px;"><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Daily Limit</div><div style="font-size:20px;font-weight:800;color:var(--primary);font-family:var(--font-mono);" id="limit-val-' + c.key + '">' + dailyLimit + '</div><div style="font-size:10px;color:var(--text-muted);">reels / day</div></div>' +
+          '<div style="background:var(--bg);padding:12px;border-radius:8px;"><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">In Queue</div><div style="font-size:20px;font-weight:800;color:var(--warning);font-family:var(--font-mono);">' + (c.queueCount||0) + '</div><div style="font-size:10px;color:var(--text-muted);">pending</div></div>' +
+          '<div style="background:var(--bg);padding:12px;border-radius:8px;"><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Published</div><div style="font-size:20px;font-weight:800;color:var(--success);font-family:var(--font-mono);">' + ((c.stats && c.stats.publishedCount) || 0) + '</div><div style="font-size:10px;color:var(--text-muted);">total</div></div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;"><span>Daily Reel Limit</span><span style="color:var(--primary);font-family:var(--font-mono);" id="limit-label-' + c.key + '">' + dailyLimit + ' reels/day</span></div>' +
+          '<input type="range" class="cfg-range" min="1" max="20" step="1" value="' + dailyLimit + '" style="width:100%;accent-color:var(--primary);">' +
+        '</div>' +
+        '<div style="margin-top:16px;">' +
+          '<label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Search Mode</label><select class="select-field search-mode-select" style="width:100%;" onchange="toggleConfigChannelFields(\'' + c.key + '\', this.value)"><option value="channels" ' + (c.searchMode === 'channels' ? 'selected' : '') + '>Competitor Watchlist</option><option value="hashtags" ' + (c.searchMode === 'hashtags' ? 'selected' : '') + '>Global Hashtags</option><option value="both" ' + (c.searchMode === 'both' ? 'selected' : '') + '>Both (Hashtags + Channels)</option></select>' +
+        '</div>' +
+        '<div id="cfg-hashtags-container-' + c.key + '" style="margin-top:12px;display:' + (c.searchMode !== 'channels' ? 'block' : 'none') + ';">' +
+          '<label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Hashtags (comma separated)</label><textarea class="input-field hashtags-input" style="width:100%;height:80px;padding:8px 12px;resize:vertical;font-size:12px;font-family:var(--font-mono);" placeholder="e.g. coding, programming, ai">' + ((c.nicheHashtags && c.nicheHashtags.length > 0) ? c.nicheHashtags.join(', ') : (c.defaultHashtags || []).join(', ')) + '</textarea>' +
+        '</div>' +
+        '<div id="cfg-channels-container-' + c.key + '" style="margin-top:12px;display:' + (c.searchMode !== 'hashtags' ? 'block' : 'none') + ';">' +
+          '<label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Competitor Watchlist (comma separated)</label><textarea class="input-field watchlist-input" style="width:100%;height:80px;padding:8px 12px;resize:vertical;font-size:12px;font-family:var(--font-mono);" placeholder="e.g. competitor1, competitor2">' + (c.watchedChannels || []).join(', ') + '</textarea>' +
+        '</div>' +
+        '<div style="margin-top:12px;">' +
+          '<label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Excluded Channels (comma separated)</label><textarea class="input-field excludes-input" style="width:100%;height:80px;padding:8px 12px;resize:vertical;font-size:12px;font-family:var(--font-mono);" placeholder="e.g. badcreator, spambot">' + (c.excludeChannels || []).join(', ') + '</textarea>' +
+        '</div>' +
+        (c.key === 'codeorcap' ?
+        '<div style="margin-top:12px;">' +
+          '<label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Outro / Final Clip Version</label>' +
+          '<select class="select-field outro-version-select" style="width:100%;"><option value="v1" ' + ((c.outroVersion || 'v1') === 'v1' ? 'selected' : '') + '>v1 (Classic Outro)</option><option value="v2" ' + (c.outroVersion === 'v2' ? 'selected' : '') + '>v2 (Transition + Classic Outro)</option></select>' +
+        '</div>' : '') +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">' +
+          '<div><label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Post Interval</label><select class="select-field" style="width:100%;"><option>Every 2 hours</option><option>Every 4 hours</option><option>Every 6 hours</option><option>Custom</option></select></div>' +
+          '<div><label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">On Queue Empty</label><select class="select-field" style="width:100%;"><option>Wait for new reels</option><option>Auto-fetch watchlist</option><option>Pause bot</option></select></div>' +
+          '<div><label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Retry Failed After</label><select class="select-field" style="width:100%;"><option>30 minutes</option><option>1 hour</option><option>3 hours</option><option>Don\'t retry</option></select></div>' +
+          '<div><label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:6px;">Max Queue Slots</label><select class="select-field" style="width:100%;"><option>6 slots</option><option>10 slots</option><option>20 slots</option><option>Unlimited</option></select></div>' +
+        '</div>';
+      const rangeInput = card.querySelector('.cfg-range');
+      rangeInput.oninput = function() {
+        setElText('limit-val-' + c.key, this.value);
+        setElText('limit-label-' + c.key, this.value + ' reels/day');
       };
+      const searchModeSelect = card.querySelector('.search-mode-select');
+      const hashtagsInput = card.querySelector('.hashtags-input');
+      const watchlistInput = card.querySelector('.watchlist-input');
+      const excludesInput = card.querySelector('.excludes-input');
+      const outroVersionSelect = card.querySelector('.outro-version-select');
 
-      if (resultBox) {
-        resultBox.innerHTML = `
-          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
-            <div style="flex:1;min-width:260px;">
-              <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:6px;">${data.metadata?.title || 'Generated Video'}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">
-                ⏱️ Duration: <b>${data.duration ? data.duration.toFixed(1) + 's' : '—'}</b> · 🎬 Scenes: <b>${data.scenesCount || '—'}</b> · 📺 Format: <b>${data.aspectRatio || '9:16'}</b> · 🎨 Style: <b>${subStyle}</b>
-              </div>
-              <div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px;font-size:11px;color:#c9d1d9;margin-bottom:12px;line-height:1.5;max-height:140px;overflow-y:auto;">
-                <b>Full Script:</b><br>${data.fullScript || ''}
-              </div>
-              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                ${videoSrc ? `<a href="${videoSrc}" download class="btn-primary" style="padding:7px 14px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">⬇️ Download MP4</a>` : ''}
-                ${publishedUrl ? `
-                  <a href="${publishedUrl}" target="_blank" class="btn-primary" style="background:#238636;border-color:#2ea043;padding:7px 14px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-                    <span>▶ View on YouTube (Published)</span>
-                  </a>
-                ` : `
-                  <button class="btn-primary" id="btn-publish-yt" style="background:#e53e3e;border-color:#fc8181;padding:7px 14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;" onclick="publishAiVideoToYouTube()">
-                    <span>🚀 Publish to YouTube</span>
-                  </button>
-                `}
-              </div>
-            </div>
-            ${videoSrc ? `
-              <div style="width:${is16x9 ? '300px' : '160px'};height:${is16x9 ? '168px' : '284px'};background:#000;border-radius:8px;overflow:hidden;border:1px solid #30363d;flex-shrink:0;">
-                <video src="${videoSrc}" controls autoplay loop muted style="width:100%;height:100%;object-fit:cover;"></video>
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }
-    } catch (err) {
-      if (resultBox) {
-        resultBox.innerHTML = `<div style="color:var(--danger);font-size:12px;">❌ Network Error: ${err.message}</div>`;
-      }
-      showToast('Error: ' + err.message, 'err');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerText = '✨ Generate Faceless Video';
-      }
-    }
-  }
-
-  async function publishAiVideoToYouTube() {
-    const info = window._lastGeneratedAiVideo;
-    if (!info || !info.videoPath) {
-      showToast('No generated video available to publish', 'err');
-      return;
-    }
-
-    const btn = document.getElementById('btn-publish-yt');
-    if (btn) {
-      btn.disabled = true;
-      btn.innerText = '⏳ Uploading to YouTube...';
-    }
-
-    try {
-      const res = await fetch(BASE_URL + '/api/publish/youtube-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelKey: info.channelKey,
-          videoPath: info.videoPath,
-          title: info.title,
-          description: info.description,
-          tags: info.tags
-        })
+      const saveBtn = card.querySelector('.save-cfg-btn');
+      card.querySelectorAll('input, select, textarea').forEach(el => {
+        if (el.className.includes('cred-')) return;
+        el.addEventListener('input', () => { saveBtn.disabled = false; });
+        el.addEventListener('change', () => { saveBtn.disabled = false; });
       });
-      const data = await res.json();
-      if (data.success && data.results && data.results.length > 0) {
-        const firstUrl = data.results[0]?.url || '';
-        showToast('🎉 Published to YouTube successfully!', 'ok');
-        if (btn) {
-          btn.innerText = '✓ Published!';
-          if (firstUrl) {
-            btn.outerHTML = `<a href="${firstUrl}" target="_blank" class="btn-primary" style="background:#238636;border-color:#2ea043;padding:7px 14px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">▶ View on YouTube</a>`;
-          }
-        }
-      } else {
-        showToast('YouTube publish failed: ' + (data.message || 'Unknown error'), 'err');
-        if (btn) {
-          btn.disabled = false;
-          btn.innerText = '🚀 Publish to YouTube';
-        }
-      }
-    } catch (err) {
-      showToast('Upload error: ' + err.message, 'err');
-      if (btn) {
-        btn.disabled = false;
-        btn.innerText = '🚀 Publish to YouTube';
-      }
-    }
-  }
 
-  async function deleteChannelProfile(key) {
-    if (!confirm(`Are you sure you want to delete the channel profile [${key}]?`)) return;
-    try {
-      const res = await fetch(BASE_URL + '/api/channels/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message || 'Channel deleted', 'ok');
-        fetchDashboardData();
-      } else {
-        showToast(data.message || 'Failed to delete channel', 'err');
-      }
-    } catch(e) {
-      showToast('Error deleting channel', 'err');
-    }
+      card.querySelector('.save-cfg-btn').onclick = () => {
+        triggerUpdateConfig(
+          c.key,
+          Number(rangeInput.value),
+          searchModeSelect.value,
+          hashtagsInput.value,
+          watchlistInput.value,
+          excludesInput.value,
+          outroVersionSelect ? outroVersionSelect.value : 'v1'
+        );
+      };
+      container.appendChild(card);
+    });
   }
 
   /* ─── VIRAL ANALYTICS ─── */
@@ -3520,6 +1705,28 @@
     logTotal++;
     document.getElementById('log-count').textContent=logTotal+' entries';
     if (autoScroll && activeTab==='logs') container.scrollTop=container.scrollHeight;
+
+    // Also stream to Live Pipeline Stream card if visible
+    const pipeLogLines = document.getElementById('pipeline-live-log-lines');
+    const pipeLogCard = document.getElementById('pipeline-live-log-card');
+    if (pipeLogLines && pipeLogCard && pipeLogCard.style.display !== 'none') {
+      const isPipeRelevant = (label && (label.toLowerCase() === 'directuploader' || label.toLowerCase() === 'instagram' || label.toLowerCase() === 'pipeline' || label.toLowerCase() === 'downloader' || label.toLowerCase() === 'remotion' || label.toLowerCase() === 'metadata')) ||
+        msg.includes('reel') || msg.includes('download') || msg.includes('video') || msg.includes('audio') || msg.includes('caption') || msg.includes('publish') || msg.includes('music');
+      if (isPipeRelevant || level === 'error') {
+        const lineDiv = document.createElement('div');
+        lineDiv.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:' + (level==='error'?'#f85149':level==='warn'?'#d29922':'#94a3b8');
+        lineDiv.innerHTML = '<span style="color:#64748b;">[' + esc(label || 'pipe') + ']</span> ' + esc(msg);
+        pipeLogLines.appendChild(lineDiv);
+        while (pipeLogLines.children.length > 50) {
+          pipeLogLines.removeChild(pipeLogLines.firstChild);
+        }
+        pipeLogLines.scrollTop = pipeLogLines.scrollHeight;
+        const streamStatus = document.getElementById('pipeline-stream-status');
+        if (streamStatus && msg.length > 2) {
+          streamStatus.textContent = msg.length > 35 ? msg.slice(0, 33) + '…' : msg;
+        }
+      }
+    }
   }
 
   function toggleConfigChannelFields(key, mode) {
@@ -3556,14 +1763,14 @@
       n: 3, label: 'Captions',
       estSec: 6,
       startKw: ['rendering animated text layers', 'skipping remotion rendering', 'burned timed captions', 'overlaid'],
-      doneKw:  ['burned timed captions onto video', 'skipping remotion rendering as per user request', 'detected raw video duration'],
+      doneKw:  ['burned timed captions onto video', 'skipping remotion rendering as per user request'],
       failKw:  ['remotion render failed'],
       stuckMs: 8 * 60 * 1000,
     },
     {
       n: 4, label: 'Audio',
       estSec: 6,
-      startKw: ['mixing background music', 'mixing background music + voiceover', 'mixing audio'],
+      startKw: ['compiling video and mixing audio', 'mixing background music', 'mixing background music + voiceover', 'mixing audio'],
       doneKw:  ['compilation complete', 'sending for manual review', 'manual review sent'],
       failKw:  ['audio mix failed'],
       stuckMs: 30 * 60 * 1000,
@@ -3571,9 +1778,9 @@
     {
       n: 5, label: 'Render',
       estSec: 18,
-      startKw: ['sending for manual review', 'manual review sent', 'review timeout', 'compilation complete'],
-      doneKw:  ['review timeout', 'auto-publishing', 'upload %', 'starting youtube', 'starting instagram', 'starting facebook', 'starting reel upload', 'uploading video binary'],
-      failKw:  ['upload cancelled by user'],
+      startKw: ['compiling video and mixing audio', 'overlay reaction sticker', 'append verdict sequence', 'compilation complete', 'manual review sent'],
+      doneKw:  ['manual review sent', 'waiting for manual publish approval', 'review timeout', 'auto-publishing', 'upload %', 'starting youtube', 'starting instagram', 'starting facebook', 'starting reel upload', 'uploading video binary'],
+      failKw:  ['upload cancelled by user', 'compile/auto-publish failed'],
       stuckMs: 45 * 60 * 1000,
     },
     {
@@ -3590,6 +1797,7 @@
   const stepProgress = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
   const publishedLinks = { youtube: '', instagram: '', facebook: '' };
   let currentActiveShortcode = '';
+  let currentActiveJobId = '';
   for (let i = 1; i <= 6; i++) stepState[i] = { status: 'idle', startMs: 0, doneMs: 0, detail: '', explicitPct: 0 };
   let elapsedTimerHandle = null;
   let stuckWatcherHandle = null;
@@ -3695,10 +1903,16 @@
     if (badge) { badge.className = 'status-badge status-published'; badge.textContent = 'System Ready'; }
     const src = document.getElementById('source-preview-card');
     const out = document.getElementById('output-preview-card');
+    const liveLogCard = document.getElementById('pipeline-live-log-card');
+    const liveLogLines = document.getElementById('pipeline-live-log-lines');
+    const streamStatus = document.getElementById('pipeline-stream-status');
     const pubContainer = document.getElementById('published-links-container');
     const pubRow = document.getElementById('published-links-row');
     if (src) src.style.display = 'none';
     if (out) out.style.display = 'none';
+    if (liveLogCard) liveLogCard.style.display = 'none';
+    if (liveLogLines) liveLogLines.innerHTML = '<div style="color:var(--text-dim);font-style:italic;">Initializing pipeline stream…</div>';
+    if (streamStatus) streamStatus.textContent = 'Processing...';
     if (pubContainer) pubContainer.style.display = 'none';
     if (pubRow) pubRow.innerHTML = '';
   }
@@ -3710,6 +1924,8 @@
     const linkEl = document.getElementById('source-open-link');
     const thumbImg = document.getElementById('source-thumb-img');
     const thumbFallback = document.getElementById('source-thumb-fallback');
+    const out = document.getElementById('output-preview-card');
+    const liveLogCard = document.getElementById('pipeline-live-log-card');
     if (!src) return;
     currentActiveShortcode = shortcode || '';
     if (scEl) scEl.textContent = shortcode ? '#' + shortcode : (url || '—');
@@ -3726,6 +1942,10 @@
       }
     }
     src.style.display = '';
+
+    // While processing, show live log card in output area, hide output video card
+    if (out) out.style.display = 'none';
+    if (liveLogCard) liveLogCard.style.display = 'flex';
   }
 
   function updateSourceThumbnail() {
@@ -3738,6 +1958,7 @@
   function setPipelineOutput(videoUrl) {
     const out = document.getElementById('output-preview-card');
     const vid = document.getElementById('output-video-player');
+    const liveLogCard = document.getElementById('pipeline-live-log-card');
     if (!out || !vid) return;
     const url = videoUrl || (BASE_URL + '/api/video-preview?t=' + Date.now());
     if (vid.src !== url) {
@@ -3760,6 +1981,8 @@
         }, 2000);
       });
     }
+    // Switch from live log terminal to output video player
+    if (liveLogCard) liveLogCard.style.display = 'none';
     out.style.display = '';
     const badge = document.getElementById('stepper-status-badge');
     if (badge) { badge.className = 'status-badge status-published'; badge.textContent = '🎬 Preview Ready'; }
@@ -3850,9 +2073,11 @@
     }
 
     // ── Render complete / compilation complete → show output video preview ───
-    if (m.includes('compilation complete') || m.includes('video optimized successfully') || m.includes('output ready')) {
-      setPipelineOutput();
-      setStepState(5, 'done', 'Video rendered');
+    if (m.includes('compilation complete') || m.includes('output ready') || m.includes('waiting for manual publish review') || m.includes('waiting for manual publish approval') || m.includes('manual review sent')) {
+      const jobIdMatch = msg.match(/(gen-\d+-\d+)/);
+      if (jobIdMatch) currentActiveJobId = jobIdMatch[1];
+      setPipelineOutput(currentActiveJobId ? `${BASE_URL}/api/video-preview?jobId=${encodeURIComponent(currentActiveJobId)}&t=${Date.now()}` : undefined);
+      setStepState(5, 'done', 'Video rendered — ready to publish');
     }
 
     // ── Platform upload percentage (e.g. YouTubeService: Upload 84%) ─────────
@@ -4210,23 +2435,97 @@
     switchTab('logs');
   }
 
-  // Visibility-aware polling: don't hammer the server while the tab is in the
-  // background. Dashboard every 15s, pending-review countdown every 6s.
-  let _dashTimer = null, _revTimer = null;
-  function startPolling() {
-    stopPolling();
-    _dashTimer = setInterval(() => { if (!document.hidden) fetchDashboardData(); }, 15000);
-    _revTimer  = setInterval(() => { if (!document.hidden) fetchPendingReviews(); }, 6000);
+  /* ─── DAILY 10-MINUTE VIDEO ─── */
+  async function fetchAutoLong() {
+    try {
+      const r = await fetch('/api/autolong/status', { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      renderAutoLong(await r.json());
+    } catch (e) {
+      const el = document.getElementById('autolong-updated');
+      if (el) el.textContent = 'status unavailable: ' + (e && e.message ? e.message : e);
+    }
   }
-  function stopPolling() {
-    if (_dashTimer) clearInterval(_dashTimer);
-    if (_revTimer) clearInterval(_revTimer);
-    _dashTimer = _revTimer = null;
+
+  async function autoLongMakeNow() {
+    const out = document.getElementById('autolong-make-result');
+    const channel = document.getElementById('autolong-channel').value;
+    out.style.color = 'var(--text-muted)';
+    out.textContent = 'sending...';
+    try {
+      const r = await fetch('/api/autolong/enqueue', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: channel, publishNow: document.getElementById('autolong-now').checked, force: document.getElementById('autolong-force').checked }),
+      });
+      const d = await r.json();
+      if (d.success) { out.style.color = '#7ee787'; out.textContent = 'queued: "' + (d.seed && d.seed.title || d.id) + '". It starts within a minute.'; }
+      else { out.style.color = '#ffb4ae'; out.textContent = 'not queued: ' + (d.reason || d.message || ('HTTP ' + r.status)); }
+      fetchAutoLong();
+    } catch (e) {
+      out.style.color = '#ffb4ae';
+      out.textContent = 'failed: ' + (e && e.message ? e.message : e);
+    }
   }
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) { fetchDashboardData(); fetchPendingReviews(); }
-  });
-  startPolling();
+
+  function renderAutoLong(d) {
+    const $ = (id) => document.getElementById(id);
+    if (!$('autolong-queue')) return;
+    $('autolong-updated').textContent = 'updated ' + new Date(d.now).toLocaleTimeString();
+    const sw = d.config && d.config.switches ? d.config.switches : {};
+    $('autolong-switches').innerHTML = Object.keys(sw).map(function (k) {
+      const off = /^OFF/.test(String(sw[k]));
+      return '<span style="padding:4px 10px;border-radius:999px;font-size:11px;border:1px solid ' + (off ? '#f85149' : '#2ea043') +
+        ';color:' + (off ? '#ffb4ae' : '#7ee787') + ';">' + esc(k) + ': ' + esc(sw[k]) + '</span>';
+    }).join('');
+    const c = (d.service && d.service.counters) || {};
+    const box = function (label, val, bad) {
+      return '<div style="min-width:92px;padding:10px 14px;border:1px solid var(--card-border);border-radius:10px;background:var(--card);">' +
+        '<div style="font-size:20px;font-weight:800;color:' + (bad && val > 0 ? '#f85149' : '#fff') + ';">' + esc(val) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + esc(label) + '</div></div>';
+    };
+    $('autolong-counters').innerHTML = box('planned', c.planned || 0) + box('skipped', c.skipped || 0) + box('started', c.started || 0) +
+      box('done', c.done || 0) + box('retried', c.retried || 0, true) + box('failed', c.failed || 0, true) + box('tick errors', c.tickErrors || 0, true) +
+      box('now running', d.service && d.service.running ? '1' : '0');
+    const cfg = d.config || {};
+    const slots = cfg.shortSlotsIst || {};
+    $('autolong-schedule').innerHTML =
+      '<b>Long video public at:</b> ' + esc((cfg.longReleaseIst || []).join(' / ')) + ' (CodeOrCap / Storiyum / Prompt Gag / InfoOnSpot)<br>' +
+      Object.keys(slots).map(function (k) { return '<b>' + esc(k) + ' Shorts:</b> ' + esc(slots[k].join(', ')); }).join('<br>') + '<br>' +
+      '<b>Candidates today:</b> ' + esc(Object.keys(d.candidatesToday || {}).map(function (k) { return k + '=' + d.candidatesToday[k]; }).join(', ')) +
+      '<br><b>Last planned:</b> ' + esc((d.service && d.service.lastPlanAt) || 'not yet') + ' &nbsp; <b>Last tick:</b> ' + esc((d.service && d.service.lastTickAt) || 'not yet');
+    const badge = { queued: '#d29922', running: '#58a6ff', done: '#2ea043', failed: '#f85149', skipped: '#8b949e' };
+    const rows = d.queue || [];
+    $('autolong-queue').innerHTML = rows.length ? rows.map(function (r) {
+      const last = r.videoUrl ? '<a href="' + esc(r.videoUrl).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#58a6ff;">' + esc(r.videoUrl) + '</a>' : (r.error ? '<span style="color:#ffb4ae;">' + esc(r.error) + '</span>' : '');
+      return '<tr><td>' + esc(r.id.split(':')[0]) + '</td><td>' + esc(r.channel) + '</td>' +
+        '<td><span style="color:' + (badge[r.status] || '#fff') + ';font-weight:700;">' + esc(r.status) + '</span></td>' +
+        '<td>' + (r.seed ? esc(r.seed.title) + ' <span style="color:var(--text-muted);">(' + esc(r.seed.viralScore) + ')</span>' : '-') + '</td>' +
+        '<td>' + esc(r.attempts) + '</td><td>' + esc(r.releaseAt ? new Date(r.releaseAt).toLocaleString() : '-') + '</td><td>' + last + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" style="color:var(--text-muted);">Nothing planned yet. The first plan runs after 00:00 IST.</td></tr>';
+    const lvl = { info: '#8b949e', warn: '#d29922', error: '#f85149' };
+    $('autolong-events').innerHTML = (d.events || []).slice().reverse().map(function (e) {
+      return '<div style="color:' + (lvl[e.level] || '#8b949e') + ';">' + esc(new Date(e.at).toLocaleTimeString()) + ' [' + esc(e.stage) + ']' +
+        (e.requestId ? '[' + esc(e.requestId) + ']' : '') + ' ' + esc(e.message) + '</div>';
+    }).join('') || '<div style="color:var(--text-muted);">No events yet.</div>';
+    // a red mark on the tab when something failed recently, so it is noticed without opening the tab
+    const f = d.service && d.service.lastFailure;
+    const recent = f && (Date.now() - new Date(f.at).getTime()) < 24 * 3600 * 1000;
+    const bad = rows.some(function (r) { return r.status === 'failed'; });
+    $('autolong-badge').style.display = (recent || bad) ? '' : 'none';
+    const alertEl = $('autolong-alert');
+    if (recent || bad) {
+      alertEl.style.display = '';
+      alertEl.innerHTML = '<b>Needs attention:</b> ' + esc(f ? ('[' + f.stage + '] ' + f.message) : 'a video failed') +
+        (f && f.requestId ? ' <span style="opacity:.8;">(' + esc(f.requestId) + ')</span>' : '');
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
+  fetchAutoLong();
+  setInterval(fetchAutoLong, 10000);
+  setInterval(fetchDashboardData, 10000);
+  setInterval(fetchPendingReviews, 3000);
 </script>
 
 <!-- Reel player: outside every table so the 15 s re-render never interrupts playback -->
@@ -4240,6 +2539,41 @@
     <div id="reel-modal-msg" style="color:#c9d1d9;font-size:12px;margin-top:8px;"></div>
   </div>
 </div>
+
+<!-- Pipeline Health Center: test-repo implementation -->
+<section id="pipeline-health-center" style="margin:18px 0;padding:18px;border:1px solid #30363d;border-radius:12px;background:#161b22;color:#e6edf3;font-family:Inter,system-ui,sans-serif">
+  <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+    <div><div style="font-size:16px;font-weight:800">🩺 Pipeline Health Center</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Dependency status · affected features · suggested next steps</div></div>
+    <button id="health-refresh" type="button" style="background:#21262d;border:1px solid #484f58;color:#e6edf3;padding:8px 12px;border-radius:7px;cursor:pointer">Test again</button>
+  </div>
+  <div id="health-summary" role="status" style="margin-top:14px;padding:12px;border-radius:8px;background:#21262d;color:#8b949e">Checking configured dependencies…</div>
+  <div id="health-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:12px"></div>
+  <div style="font-size:11px;color:#8b949e;margin-top:12px">Checks are low-cost endpoint reachability probes only. They do not generate videos, change credentials, retry jobs, or publish content. Unconfigured services are not reported as outages.</div>
+</section>
+<script>
+(function(){
+ const root=document.getElementById('pipeline-health-center'); if(!root || root.dataset.ready) return; root.dataset.ready='1';
+ const summary=root.querySelector('#health-summary'), cards=root.querySelector('#health-cards'), button=root.querySelector('#health-refresh');
+ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const color=s=>s==='down'?'#f85149':s==='degraded'?'#d29922':s==='healthy'?'#3fb950':'#8b949e';
+ async function refresh(){
+  button.disabled=true; button.textContent='Checking…';
+  try{
+   const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store'});
+   if(response.status===401){summary.textContent='Please sign in to view dependency health.';cards.innerHTML='';return;}
+   if(!response.ok) throw new Error('Health endpoint returned HTTP '+response.status);
+   const data=await response.json();
+   const label=data.status==='critical'?'CRITICAL':data.status==='degraded'?'DEGRADED':'HEALTHY';
+   summary.style.borderLeft='4px solid '+(data.status==='critical'?'#f85149':data.status==='degraded'?'#d29922':'#3fb950');
+   summary.innerHTML='<strong style="color:'+color(data.status==='critical'?'down':data.status==='degraded'?'degraded':'healthy')+'">'+label+'</strong> · '+esc(data.summary.down)+' down · '+esc(data.summary.degraded)+' degraded · '+esc(data.summary.monitored)+' monitored <span style="display:block;font-size:11px;margin-top:5px;color:#8b949e">Last checked: '+esc(new Date(data.checkedAt).toLocaleString())+'</span>';
+   cards.innerHTML=data.checks.map(c=>'<article style="padding:13px;border:1px solid #30363d;border-radius:9px;background:#0d1117"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong>'+esc(c.name)+'</strong><span style="font-size:10px;font-weight:800;color:'+color(c.status)+';text-transform:uppercase">'+esc(c.status.replace('_',' '))+'</span></div><div style="font-size:12px;color:#8b949e;margin-top:8px">'+esc(c.detail)+'</div>'+(c.latencyMs!=null?'<div style="font-size:11px;color:#8b949e;margin-top:5px">Latency: '+esc(c.latencyMs)+' ms</div>':'')+(c.affected.length?'<div style="font-size:12px;margin-top:9px"><strong>Affected functionality</strong><ul style="padding-left:18px;margin-top:4px">'+c.affected.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul></div>':'')+'<div style="font-size:12px;margin-top:9px;color:#e6edf3"><strong>Suggested action</strong><div style="margin-top:4px;color:#c9d1d9">'+esc(c.remedy)+'</div></div></article>').join('');
+  }catch(e){summary.style.borderLeft='4px solid #f85149';summary.textContent='Unable to load health status: '+e.message+'. Check dashboard login and server logs.';cards.innerHTML='';}
+  finally{button.disabled=false;button.textContent='Test again';}
+ }
+ button.addEventListener('click',refresh); refresh(); setInterval(refresh,60000);
+})();
+</script>
+
 </body>
 </html>
 
