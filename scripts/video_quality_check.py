@@ -81,6 +81,20 @@ def audio_levels(path):
         "diagnostic": text[-1200:] if result.returncode else None,
     }
 
+
+def decode_scan(path):
+    """Decode every video and audio packet to catch corrupt/truncated output."""
+    result = run([
+        "ffmpeg", "-v", "error", "-i", path,
+        "-f", "null", "-"
+    ])
+    text = (result.stderr or "").strip()
+    return {
+        "return_code": result.returncode,
+        "errors": text.splitlines()[:30],
+        "diagnostic": text[-2000:] if text else None,
+    }
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("video", help="Rendered MP4 path")
@@ -102,10 +116,16 @@ def main():
         warnings.append("Expected vertical 1080x1920 output")
     if report["duration_seconds"] <= 0:
         errors.append("Video duration is zero or unavailable")
+    elif report["duration_seconds"] < 5:
+        warnings.append("Video is unusually short (under 5 seconds); confirm this is intentional")
     if not report["audio_present"]:
         warnings.append("No audio stream detected")
     if report["fps"] <= 0:
         warnings.append("Frame rate is unavailable")
+
+    decode = decode_scan(args.video)
+    if decode["return_code"]:
+        errors.append("Full-file decode failed; output may be corrupt or truncated")
 
     black = detect(args.video, f"blackdetect=d= {args.min_duration}:pix_th=0.10".replace("d= ", "d="))
     frozen = detect(args.video, f"freezedetect=n=-50dB:d={args.min_duration}")
@@ -126,6 +146,7 @@ def main():
         "passed": not errors,
         "errors": errors,
         "warnings": warnings,
+        "full_decode_scan": decode,
         "black_frame_scan": black,
         "freeze_scan": frozen,
         "audio_levels": levels,
