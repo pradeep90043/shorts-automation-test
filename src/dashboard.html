@@ -157,6 +157,40 @@
   </style>
 </head>
 <body>
+<!-- Pipeline Health Center: test-repo implementation -->
+<section id="pipeline-health-center" style="margin:18px 0;padding:18px;border:1px solid #30363d;border-radius:12px;background:#161b22;color:#e6edf3;font-family:Inter,system-ui,sans-serif">
+  <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+    <div><div style="font-size:16px;font-weight:800">🩺 Pipeline Health Center</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Dependency status · affected features · suggested next steps</div></div>
+    <button id="health-refresh" type="button" style="background:#21262d;border:1px solid #484f58;color:#e6edf3;padding:8px 12px;border-radius:7px;cursor:pointer">Test again</button>
+  </div>
+  <div id="health-summary" role="status" style="margin-top:14px;padding:12px;border-radius:8px;background:#21262d;color:#8b949e">Checking configured dependencies…</div>
+  <div id="health-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:12px"></div>
+  <div style="font-size:11px;color:#8b949e;margin-top:12px">Checks are low-cost endpoint reachability probes only. They do not generate videos, change credentials, retry jobs, or publish content. Unconfigured services are not reported as outages.</div>
+</section>
+<script>
+(function(){
+ const root=document.getElementById('pipeline-health-center'); if(!root || root.dataset.ready) return; root.dataset.ready='1';
+ const summary=root.querySelector('#health-summary'), cards=root.querySelector('#health-cards'), button=root.querySelector('#health-refresh');
+ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const color=s=>s==='down'?'#f85149':s==='degraded'?'#d29922':s==='healthy'?'#3fb950':'#8b949e';
+ async function refresh(){
+  button.disabled=true; button.textContent='Checking…';
+  try{
+   const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store'});
+   if(response.status===401){summary.textContent='Please sign in to view dependency health.';cards.innerHTML='';return;}
+   if(!response.ok) throw new Error('Health endpoint returned HTTP '+response.status);
+   const data=await response.json();
+   const label=data.status==='critical'?'CRITICAL':data.status==='degraded'?'DEGRADED':'HEALTHY';
+   summary.style.borderLeft='4px solid '+(data.status==='critical'?'#f85149':data.status==='degraded'?'#d29922':'#3fb950');
+   summary.innerHTML='<strong style="color:'+color(data.status==='critical'?'down':data.status==='degraded'?'degraded':'healthy')+'">'+label+'</strong> · '+esc(data.summary.down)+' down · '+esc(data.summary.degraded)+' degraded · '+esc(data.summary.monitored)+' monitored <span style="display:block;font-size:11px;margin-top:5px;color:#8b949e">Last checked: '+esc(new Date(data.checkedAt).toLocaleString())+'</span>';
+   cards.innerHTML=data.checks.map(c=>'<article style="padding:13px;border:1px solid #30363d;border-radius:9px;background:#0d1117"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong>'+esc(c.name)+'</strong><span style="font-size:10px;font-weight:800;color:'+color(c.status)+';text-transform:uppercase">'+esc(c.status.replace('_',' '))+'</span></div><div style="font-size:12px;color:#8b949e;margin-top:8px">'+esc(c.detail)+'</div>'+(c.latencyMs!=null?'<div style="font-size:11px;color:#8b949e;margin-top:5px">Latency: '+esc(c.latencyMs)+' ms</div>':'')+(c.affected.length?'<div style="font-size:12px;margin-top:9px"><strong>Affected functionality</strong><ul style="padding-left:18px;margin-top:4px">'+c.affected.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul></div>':'')+'<div style="font-size:12px;margin-top:9px;color:#e6edf3"><strong>Suggested action</strong><div style="margin-top:4px;color:#c9d1d9">'+esc(c.remedy)+'</div></div></article>').join('');
+  }catch(e){summary.style.borderLeft='4px solid #f85149';summary.textContent='Unable to load health status: '+e.message+'. Check dashboard login and server logs.';cards.innerHTML='';}
+  finally{button.disabled=false;button.textContent='Test again';}
+ }
+ button.addEventListener('click',refresh); refresh(); setInterval(refresh,60000);
+})();
+</script>
+
 
 <div id="topbar">
   <div class="brand">
@@ -2540,39 +2574,7 @@
   </div>
 </div>
 
-<!-- Pipeline Health Center: test-repo implementation -->
-<section id="pipeline-health-center" style="margin:18px 0;padding:18px;border:1px solid #30363d;border-radius:12px;background:#161b22;color:#e6edf3;font-family:Inter,system-ui,sans-serif">
-  <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-    <div><div style="font-size:16px;font-weight:800">🩺 Pipeline Health Center</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Dependency status · affected features · suggested next steps</div></div>
-    <button id="health-refresh" type="button" style="background:#21262d;border:1px solid #484f58;color:#e6edf3;padding:8px 12px;border-radius:7px;cursor:pointer">Test again</button>
-  </div>
-  <div id="health-summary" role="status" style="margin-top:14px;padding:12px;border-radius:8px;background:#21262d;color:#8b949e">Checking configured dependencies…</div>
-  <div id="health-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:12px"></div>
-  <div style="font-size:11px;color:#8b949e;margin-top:12px">Checks are low-cost endpoint reachability probes only. They do not generate videos, change credentials, retry jobs, or publish content. Unconfigured services are not reported as outages.</div>
-</section>
-<script>
-(function(){
- const root=document.getElementById('pipeline-health-center'); if(!root || root.dataset.ready) return; root.dataset.ready='1';
- const summary=root.querySelector('#health-summary'), cards=root.querySelector('#health-cards'), button=root.querySelector('#health-refresh');
- const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const color=s=>s==='down'?'#f85149':s==='degraded'?'#d29922':s==='healthy'?'#3fb950':'#8b949e';
- async function refresh(){
-  button.disabled=true; button.textContent='Checking…';
-  try{
-   const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store'});
-   if(response.status===401){summary.textContent='Please sign in to view dependency health.';cards.innerHTML='';return;}
-   if(!response.ok) throw new Error('Health endpoint returned HTTP '+response.status);
-   const data=await response.json();
-   const label=data.status==='critical'?'CRITICAL':data.status==='degraded'?'DEGRADED':'HEALTHY';
-   summary.style.borderLeft='4px solid '+(data.status==='critical'?'#f85149':data.status==='degraded'?'#d29922':'#3fb950');
-   summary.innerHTML='<strong style="color:'+color(data.status==='critical'?'down':data.status==='degraded'?'degraded':'healthy')+'">'+label+'</strong> · '+esc(data.summary.down)+' down · '+esc(data.summary.degraded)+' degraded · '+esc(data.summary.monitored)+' monitored <span style="display:block;font-size:11px;margin-top:5px;color:#8b949e">Last checked: '+esc(new Date(data.checkedAt).toLocaleString())+'</span>';
-   cards.innerHTML=data.checks.map(c=>'<article style="padding:13px;border:1px solid #30363d;border-radius:9px;background:#0d1117"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong>'+esc(c.name)+'</strong><span style="font-size:10px;font-weight:800;color:'+color(c.status)+';text-transform:uppercase">'+esc(c.status.replace('_',' '))+'</span></div><div style="font-size:12px;color:#8b949e;margin-top:8px">'+esc(c.detail)+'</div>'+(c.latencyMs!=null?'<div style="font-size:11px;color:#8b949e;margin-top:5px">Latency: '+esc(c.latencyMs)+' ms</div>':'')+(c.affected.length?'<div style="font-size:12px;margin-top:9px"><strong>Affected functionality</strong><ul style="padding-left:18px;margin-top:4px">'+c.affected.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul></div>':'')+'<div style="font-size:12px;margin-top:9px;color:#e6edf3"><strong>Suggested action</strong><div style="margin-top:4px;color:#c9d1d9">'+esc(c.remedy)+'</div></div></article>').join('');
-  }catch(e){summary.style.borderLeft='4px solid #f85149';summary.textContent='Unable to load health status: '+e.message+'. Check dashboard login and server logs.';cards.innerHTML='';}
-  finally{button.disabled=false;button.textContent='Test again';}
- }
- button.addEventListener('click',refresh); refresh(); setInterval(refresh,60000);
-})();
-</script>
+
 
 </body>
 </html>
