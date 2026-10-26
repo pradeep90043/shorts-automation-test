@@ -296,7 +296,7 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
     if a_filters:
         a_filters = [
             item.replace("[afinal]", "[afinal_pre]")
-            + ";[afinal_pre]alimiter=limit=0.95:level=false[afinal]"
+            + ";[afinal_pre]alimiter=limit=0.85:level=false[afinal]"
             for item in a_filters
         ]
 
