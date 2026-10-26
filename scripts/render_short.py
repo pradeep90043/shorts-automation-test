@@ -25,25 +25,43 @@ import glob
 
 
 def ensure_devanagari_font():
-    """Hindi captions need a Devanagari font; the GitHub runner image has none, so libass would draw empty boxes.
-    Installs Noto (time-limited, never fatal: without it the render still finishes, only the Hindi glyphs are missing)."""
-    try:
-        have = subprocess.run(["fc-list", ":lang=hi"], capture_output=True, text=True, timeout=30).stdout.strip()
-        if have:
-            return
-        print("🔤 Installing a Devanagari font for Hindi captions...")
-        for cmd in (["sudo", "apt-get", "-o", "Acquire::Retries=2", "-o", "Acquire::http::Timeout=20", "update", "-qq"],
-                    ["sudo", "apt-get", "-o", "Acquire::Retries=2", "install", "-y", "-qq", "fonts-noto-core"],
-                    ["sudo", "fc-cache", "-f"]):
+    """Verify the exact face used for Hindi captions; fail closed rather than render unreadable boxes."""
+    def font_is_usable():
+        try:
+            result = subprocess.run(
+                ["fc-match", "-f", "%{family}|%{file}", "Noto Sans Devanagari:lang=hi"],
+                capture_output=True, text=True, timeout=30, check=True,
+            )
+            family, separator, font_file = result.stdout.strip().partition("|")
+            return bool(separator and "Noto Sans Devanagari" in family and font_file and os.path.isfile(font_file))
+        except Exception:  # noqa: BLE001
+            return False
+
+    if font_is_usable():
+        print("✓ Noto Sans Devanagari font verified")
+        return
+
+    print("🔤 Installing Noto Sans Devanagari for Hindi captions...")
+    for cmd in (
+        ["sudo", "apt-get", "-o", "Acquire::Retries=2", "-o", "Acquire::http::Timeout=20", "update", "-qq"],
+        ["sudo", "apt-get", "-o", "Acquire::Retries=2", "install", "-y", "-qq", "fonts-noto-core"],
+        ["sudo", "fc-cache", "-f"],
+    ):
+        try:
             subprocess.run(cmd, timeout=150, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        ok = subprocess.run(["fc-list", ":lang=hi"], capture_output=True, text=True, timeout=30).stdout.strip()
-        print("✓ Devanagari font ready" if ok else "⚠ Devanagari font not available: Hindi captions may show empty boxes")
-    except Exception as exc:  # noqa: BLE001
-        print(f"⚠ font setup skipped: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠ font install command failed: {cmd[0]} {cmd[1]}: {exc}")
+
+    if not font_is_usable():
+        raise RuntimeError(
+            "Hindi captions require Noto Sans Devanagari, but fontconfig could not resolve the requested face; "
+            "refusing to render unreadable captions."
+        )
+    print("✓ Noto Sans Devanagari font verified")
 
 
 def download_and_extract_bundle(bundle_url: str, dest_dir: str):
-    print(f"📥 Downloading bundle from: {bundle_url}")
+    print("📥 Downloading bundle from the configured temporary URL...")
     tar_path = os.path.join(dest_dir, "bundle.tar.gz")
     
     # Download with custom User-Agent
@@ -292,6 +310,9 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
     filter_complex_parts = v_filters
     if a_filters:
         filter_complex_parts.extend(a_filters)
+        if has_audio_out:
+            # Keep AAC output below full scale; prior renders showed a true peak above 0 dBFS.
+            filter_complex_parts.append("[afinal]alimiter=limit=0.85:attack=5:release=50:level=0[aout]")
     filter_complex = "; ".join(filter_complex_parts)
 
     cmd = ["ffmpeg", "-y"]
@@ -300,7 +321,7 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
     cmd.extend(["-map", current_v])
     
     if has_audio_out:
-        cmd.extend(["-map", "[afinal]", "-c:a", "aac", "-b:a", "192k", "-ar", "44100"])
+        cmd.extend(["-map", "[aout]", "-c:a", "aac", "-b:a", "192k", "-ar", "44100"])
     else:
         cmd.extend(["-an"])
         
@@ -338,7 +359,15 @@ def main():
     temp_dir = tempfile.mkdtemp(prefix="short_cloud_")
     try:
         download_and_extract_bundle(args.bundle, temp_dir)
-        ensure_devanagari_font()
+        spec_path = os.path.join(temp_dir, "short_spec.json")
+        with open(spec_path, "r", encoding="utf-8") as f:
+            spec = json.load(f)
+        captions_path = os.path.join(temp_dir, "captions.ass")
+        if spec.get("captions", True) and os.path.isfile(captions_path):
+            with open(captions_path, "r", encoding="utf-8") as f:
+                caption_text = f.read()
+            if any("\u0900" <= char <= "\u097F" for char in caption_text):
+                ensure_devanagari_font()
         build_and_run_ffmpeg(temp_dir, repo_root, args.out)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
