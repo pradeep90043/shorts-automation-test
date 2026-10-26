@@ -231,6 +231,11 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
     # Captions
     ass_file = os.path.join(work_dir, "captions.ass")
     has_captions = use_captions and os.path.exists(ass_file)
+    captions_text = ""
+    if has_captions:
+        with open(ass_file, "r", encoding="utf-8", errors="replace") as f:
+            captions_text = f.read()
+    has_devanagari_captions = any("\u0900" <= char <= "\u097F" for char in captions_text)
 
     # ── BUILD FILTER GRAPH ───────────────────────────────────────────────────
     v_filters = []
@@ -271,7 +276,10 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
     # 5. Burn animated subtitles (ASS)
     if has_captions:
         escaped_ass = ass_file.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
-        v_filters.append(f"{current_v}subtitles='{escaped_ass}'[vfinal]")
+        force_style = "FontSize=48,Alignment=8,MarginV=28,MarginL=60,MarginR=60,Outline=2,Shadow=0,WrapStyle=0"
+        if has_devanagari_captions:
+            force_style = "FontName=Noto Sans Devanagari," + force_style
+        v_filters.append(f"{current_v}subtitles='{escaped_ass}':force_style='{force_style}'[vfinal]")
         current_v = "[vfinal]"
 
     # ── BUILD AUDIO GRAPH ────────────────────────────────────────────────────
