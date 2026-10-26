@@ -27,10 +27,12 @@ jobs:
           bash scripts/ensure_ffmpeg.sh
 
       - name: Render short video
+        env:
+          BUNDLE_URL: ${{ inputs.bundle_url }}
         run: |
-          python3 scripts/render_short.py \
-            --bundle "${{ inputs.bundle_url }}" \
-            --out "video_final.mp4"
+          set +x
+          if [ -n "$BUNDLE_URL" ]; then echo "::add-mask::$BUNDLE_URL"; fi
+          python3 scripts/render_short.py --bundle "$BUNDLE_URL" --out "video_final.mp4"
 
       - name: Upload rendered video artifact
         uses: actions/upload-artifact@v4
