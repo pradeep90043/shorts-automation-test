@@ -292,6 +292,14 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
         )
         has_audio_out = True
 
+    # Keep mixed narration/music below digital full scale to avoid clipped peaks.
+    if a_filters:
+        a_filters = [
+            item.replace("[afinal]", "[afinal_pre]")
+            + ";[afinal_pre]alimiter=limit=0.95:level=false[afinal]"
+            for item in a_filters
+        ]
+
     filter_complex_parts = v_filters
     if a_filters:
         filter_complex_parts.extend(a_filters)

@@ -64,6 +64,23 @@ def detect(path, filter_name):
     }
 
 
+
+def audio_levels(path):
+    """Measure decoded audio mean and sample peak using FFmpeg volumedetect."""
+    result = run([
+        "ffmpeg", "-hide_banner", "-nostats", "-i", path,
+        "-vn", "-af", "volumedetect", "-f", "null", "-"
+    ])
+    text = result.stderr or ""
+    mean = re.search(r"mean_volume:\s*(-?\d+(?:\.\d+)?) dB", text)
+    peak = re.search(r"max_volume:\s*(-?\d+(?:\.\d+)?) dB", text)
+    return {
+        "return_code": result.returncode,
+        "mean_volume_db": float(mean.group(1)) if mean else None,
+        "max_volume_db": float(peak.group(1)) if peak else None,
+        "diagnostic": text[-1200:] if result.returncode else None,
+    }
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("video", help="Rendered MP4 path")
@@ -92,12 +109,18 @@ def main():
 
     black = detect(args.video, f"blackdetect=d= {args.min_duration}:pix_th=0.10".replace("d= ", "d="))
     frozen = detect(args.video, f"freezedetect=n=-50dB:d={args.min_duration}")
+    levels = audio_levels(args.video) if report["audio_present"] else None
     if black["events"]:
         warnings.append("Possible long black frames detected; inspect events")
     if frozen["events"]:
         warnings.append("Possible frozen sections detected; inspect events")
     if black["return_code"] or frozen["return_code"]:
         warnings.append("One or more FFmpeg visual scans did not finish cleanly")
+    if levels:
+        if levels["max_volume_db"] is not None and levels["max_volume_db"] >= -0.1:
+            warnings.append("Audio peak is at or near 0 dBFS; possible clipping")
+        if levels["return_code"]:
+            warnings.append("FFmpeg audio-level scan did not finish cleanly")
 
     report.update({
         "passed": not errors,
@@ -105,6 +128,7 @@ def main():
         "warnings": warnings,
         "black_frame_scan": black,
         "freeze_scan": frozen,
+        "audio_levels": levels,
         "limitations": [
             "Automated scans are heuristic and require visual confirmation.",
             "This script cannot certify natural motion, lip-sync, speech quality, or caption accuracy."
