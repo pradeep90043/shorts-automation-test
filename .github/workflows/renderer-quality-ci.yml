@@ -37,7 +37,7 @@ jobs:
           ffmpeg -hide_banner -f lavfi -i 'sine=frequency=1000:duration=2' \
             -af 'volume=10,alimiter=limit=0.85:attack=5:release=50:level=0,volumedetect' \
             -f null - 2>&1 | tee /tmp/limiter.log
-          max_volume="$(sed -n 's/.*max_volume: \\([-0-9.]*\\) dB/\\1/p' /tmp/limiter.log | tail -1)"
+          max_volume="$(sed -n 's/.*max_volume: \([-0-9.]*\) dB/\1/p' /tmp/limiter.log | tail -1)"
           python3 - "$max_volume" <<'PY'
 import sys
 peak = float(sys.argv[1])
