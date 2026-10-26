@@ -241,7 +241,7 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
     # 4. Reaction sticker overlay (scaled to limit obstruction of source content)
     if sticker_idx != -1:
         # Broadcast templates already contain dense on-screen text; use a smaller reaction sticker there.
-        sticker_max_width = max(120, min(int(spec.get("stickerMaxWidth", 240)), 360))
+        sticker_max_width = max(100, min(int(spec.get("stickerMaxWidth", 150)), 240))
         shift = "+3/TB" if cov_idx != -1 else ""
         if sticker_tail_idx != -1:
             v_filters.append(f"[{sticker_idx}:v]setpts=PTS-STARTPTS[stk_full];[{sticker_tail_idx}:v]setpts=PTS-STARTPTS[stk_tail];[stk_full][stk_tail]concat=n=2:v=1:a=0,setpts=PTS-STARTPTS{shift}[stickerloop]")
