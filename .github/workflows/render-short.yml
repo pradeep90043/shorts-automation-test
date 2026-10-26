@@ -32,9 +32,13 @@ jobs:
             --bundle "${{ inputs.bundle_url }}" \
             --out "video_final.mp4"
 
+      - name: Run post-render technical QC
+        run: python3 scripts/video_quality_check.py video_final.mp4 > video_quality_report.json
       - name: Upload rendered video artifact
         uses: actions/upload-artifact@v4
         with:
           name: rendered-short-${{ inputs.job_id }}
-          path: video_final.mp4
+          path: |
+            video_final.mp4
+            video_quality_report.json
           retention-days: 1

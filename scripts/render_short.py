@@ -238,16 +238,19 @@ def build_and_run_ffmpeg(work_dir: str, repo_root: str, out_path: str):
         v_filters.append(f"{current_v}[{cov_idx}:v]overlay=0:0:enable='lte(t,3)'[cov]")
         current_v = "[cov]"
 
-    # 4. Reaction sticker overlay (bottom left)
+    # 4. Reaction sticker overlay (scaled to limit obstruction of source content)
     if sticker_idx != -1:
-        # the cover card owns the first 3 s (its headline sits where the sticker does): the sticker's own timeline starts after it
+        # Broadcast templates already contain dense on-screen text; use a smaller reaction sticker there.
+        sticker_max_width = max(120, min(int(spec.get("stickerMaxWidth", 240)), 360))
         shift = "+3/TB" if cov_idx != -1 else ""
         if sticker_tail_idx != -1:
             v_filters.append(f"[{sticker_idx}:v]setpts=PTS-STARTPTS[stk_full];[{sticker_tail_idx}:v]setpts=PTS-STARTPTS[stk_tail];[stk_full][stk_tail]concat=n=2:v=1:a=0,setpts=PTS-STARTPTS{shift}[stickerloop]")
-            v_filters.append(f"{current_v}[stickerloop]overlay=40:H-h-40:shortest=1:eof_action=pass[stk]")
         else:
-            v_filters.append(f"[{sticker_idx}:v]setpts=PTS-STARTPTS{shift}[stkone]")
-            v_filters.append(f"{current_v}[stkone]overlay=40:H-h-40:shortest=1:eof_action=pass[stk]")
+            v_filters.append(f"[{sticker_idx}:v]setpts=PTS-STARTPTS{shift}[stickerloop]")
+        v_filters.append(f"[stickerloop]scale={sticker_max_width}:-2[stickersized]")
+        # Keep the sticker inside the video viewport on InfoOnSpot instead of covering its footer.
+        sticker_y = "H-h-360" if info_idx != -1 else "H-h-40"
+        v_filters.append(f"{current_v}[stickersized]overlay=40:{sticker_y}:shortest=1:eof_action=pass[stk]")
         current_v = "[stk]"
 
     # 5. Burn animated subtitles (ASS)
